@@ -1,6 +1,6 @@
 import express from "express";
 import Auth from "../Middlewares/Authentication/index.js";
-import BarsController from "../Controllers/BarsController/bars.js";
+import BarsController from "../Controllers/BarsController/Bars.js";
 import { reqFields } from "../Models/requiredFields.js";
 import multer from "multer";
 import { serverError } from "../Utils/Responses/index.js";
