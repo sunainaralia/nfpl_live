@@ -19,7 +19,6 @@ const authController = new Auth();
 routes.get(
   "/get-rewards",
   authController.verifyToken,
-  authController.checkAuth,
   async (req, res) => {
     try {
       const { page, limit = 10 } = req.query;

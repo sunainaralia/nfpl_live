@@ -560,44 +560,12 @@ class User {
   async getUserById(id) {
     try {
       const value = id.toLowerCase();
-      const [user, address, kyc, unread, tds, mIncome, avail] = await Promise.all([
+
+      // Use Promise.all to fetch all data in parallel
+      const [user, kyc, unread] = await Promise.all([
         collections.userCollection().findOne({ userId: value }),
-        collections.addCollection().findOne({ userId: value }),
         collections.kycCollection().findOne({ userId: value }),
         collections.notifCollection().countDocuments({ userId: value, status: false }),
-        collections.tdsCollection().aggregate([
-          {
-            $match: { userId: value }
-          },
-          {
-            $group: {
-              _id: null,
-              totalTds: { $sum: "$amount" }
-            }
-          }
-        ]).toArray(),
-        collections.rentCollection().aggregate([
-          {
-            $match: { $and: [{ userId: value }, { status: true }, { type: { $ne: "royality" } }] }
-          },
-          {
-            $group: {
-              _id: null,
-              income: { $sum: "$amount" }
-            }
-          }
-        ]).toArray(),
-        collections.userCollection().aggregate([
-          {
-            $match: { sponsorId: value }
-          },
-          {
-            $group: {
-              _id: null,
-              avail: { $sum: "$storage.own" }
-            }
-          }
-        ]).toArray()
       ]);
 
       if (user) {
@@ -605,9 +573,11 @@ class User {
         newUser.image = readFile(user?.image);
 
         if (kyc) {
-
-          kyc.aadharFile = [readFile(kyc?.aadharFile?.[0]) ?? "", readFile(kyc.aadharFile?.[1] ?? "")];
-          kyc.panFile = readFile(kyc.panFile);
+          kyc.aadharFile = [
+            readFile(kyc?.aadharFile?.[0]) ?? "",
+            readFile(kyc?.aadharFile?.[1]) ?? "",
+          ];
+          kyc.panFile = readFile(kyc?.panFile);
           kyc.sign = readFile(kyc?.sign);
         }
 
@@ -616,21 +586,19 @@ class User {
           data: {
             user: newUser,
             kyc: kyc,
-            tds: tds[0]?.totalTds ?? 0,
-            address: address,
             unread: unread ?? 0,
-            avail: parseInt(avail[0]?.avail) ?? 0,
-            mIncome: mIncome[0]?.income ?? 0
           },
         };
       } else {
+        console.log("okkk")
         return idNotFound;
       }
     } catch (err) {
-      console.log(err);
+      console.error(err);
       return serverError;
     }
   }
+
 
 
   async getPendingVerifications() {
