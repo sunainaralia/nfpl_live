@@ -121,7 +121,7 @@ class Admin {
         while (!await isReferralKeyUnique(referralKey)) {
             referralKey = generateReferralKey(); // Keep generating until it's unique
         }
-        user.referral_key = referralKey; // Set the referral_key on the user
+        user.referralKey = referralKey; // Set the referral_key on the user
 
         const res = await collections.adminCollection().insertOne(user);
         if (res.acknowledged && res.insertedId) {
@@ -140,7 +140,7 @@ class Admin {
                 ...message,
                 data: {
                     id: user.id,
-                    referral_key: user.referral_key
+                    referralKey: user.referralKey
                 },
             };
         } else {
@@ -157,7 +157,7 @@ class Admin {
                 referralKey = generateReferralKey();
             }
             console.log(user)
-            user.referral_key = referralKey;
+            user.referralKey = referralKey;
             const hashedPassword = await HashPassword(user.password);
             user.password = hashedPassword;
 
@@ -178,7 +178,7 @@ class Admin {
                     ...message,
                     data: {
                         id: user.id,
-                        referral_key: user.referral_key
+                        referralKey: user.referralKey
                     },
                 };
             } else {

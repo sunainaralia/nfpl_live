@@ -13,7 +13,7 @@ class AdminModel {
     attempt,
     isVerified,
     designation,
-    referral_key,
+    referralKey,
     createdAt,
     updatedAt,
   ) {
@@ -30,7 +30,7 @@ class AdminModel {
     this.attempt = attempt;
     this.isVerified = isVerified;
     this.designation = designation;
-    this.referral_key = referral_key;
+    this.referralKey = referralKey;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -51,7 +51,7 @@ class AdminModel {
       jsonData.attempt ?? 5,
       jsonData.isVerified !== undefined ? JSON.parse(jsonData.isVerified) : false,
       jsonData.designation ?? "",
-      jsonData.referral_key ?? "",
+      jsonData.referralKey ?? "",
       jsonData.createdAt ? new Date(jsonData.createdAt) : new Date(),
       jsonData.updatedAt ? new Date(jsonData.updatedAt) : new Date()
     );
@@ -73,7 +73,7 @@ class AdminModel {
       attempt: this.attempt,
       isVerified: this.isVerified,
       designation: this.designation,
-      referral_key: this.referral_key,
+      referralKey: this.referralKey,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
     };
@@ -94,7 +94,7 @@ class AdminModel {
       auth: this.auth,
       attempt: this.attempt,
       designation: this.designation,
-      referral_key: this.referral_key,
+      referralKey: this.referralKey,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
     };  
