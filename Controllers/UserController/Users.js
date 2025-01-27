@@ -476,6 +476,7 @@ class User {
       });
 
       if (!result || (result._id != value && result.email.toLowerCase() != value)) {
+        console.log(result)
         return InvalidId("user");
       }
 

@@ -54,15 +54,12 @@ export const reqFields = {
     "accountNo",
     "IFSC",
     "holder",
-    "aadharFile",
-    "aadharNo",
     "panNo",
     "nomineeName",
     "nomineeRel",
     "nomineeAge",
     "gstIn",
-    "sign",
-    "panFile"
+  
   ],
 
   kycFiles: ["aadharFront", "aadharBack", "panFile", "sign"],

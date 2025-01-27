@@ -76,13 +76,13 @@ class KycDetail extends User {
       }
 
       // Check if the user exists in the address collection
-      const countAdd = await collections.addCollection().countDocuments({
-        userId: userId,
-      });
+      // const countAdd = await collections.addCollection().countDocuments({
+      //   userId: userId,
+      // });
 
-      if (countAdd < 1) {
-        return noAddress;
-      }
+      // if (countAdd < 1) {
+      //   return noAddress;
+      // }
 
       // Check if the KYC already exists
       const countKyc = await collections.kycCollection().countDocuments({
