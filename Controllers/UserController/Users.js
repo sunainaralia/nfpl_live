@@ -563,7 +563,7 @@ class User {
 
       // Use Promise.all to fetch all data in parallel
       const [user, kyc, unread] = await Promise.all([
-        collections.userCollection().findOne({ userId: value }),
+        collections.userCollection().findOne({ _id: new ObjectId(value) }),
         collections.kycCollection().findOne({ userId: value }),
         collections.notifCollection().countDocuments({ userId: value, status: false }),
       ]);
@@ -590,7 +590,6 @@ class User {
           },
         };
       } else {
-        console.log("okkk")
         return idNotFound;
       }
     } catch (err) {
@@ -598,8 +597,6 @@ class User {
       return serverError;
     }
   }
-
-
 
   async getPendingVerifications() {
     try {
