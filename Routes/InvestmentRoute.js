@@ -103,7 +103,7 @@ routes.delete(
 
 );
 // Get investments by userId
-routes.get(
+routes.post(
   "/get-investments-by-userid",
   authController.verifyToken,
   async (req, res) => {

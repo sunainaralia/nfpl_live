@@ -603,15 +603,15 @@ class User {
       const pendingVerifications = await collections.userCollection().aggregate([
         {
           $match: {
-            isVerified: false // Filter users where isVerified is false
+            isVerified: false 
           }
         },
         {
           $lookup: {
-            from: "kyc", // kyc collection
-            localField: "userId", // field in userCollection
-            foreignField: "userId", // field in kyc collection
-            as: "kycDetails" // alias for the joined documents
+            from: "kyc", 
+            localField: "userId", 
+            foreignField: "userId",
+            as: "kycDetails"
           }
         },
         {
