@@ -7,42 +7,49 @@ class InvestmentModel {
     amount,
     charges,
     status,
+    withdraw,
     createdAt,
     updatedAt
   ) {
-    this.id = id; 
-    this.userId = userId; 
-    this.title = title; 
-    this.transactionId = transactionId; 
-    this.amount = amount; 
-    this.charges = charges; 
-    this.status = status; 
-    this.createdAt = createdAt; 
-    this.updatedAt = updatedAt; 
+    this.id = id;
+    this.userId = userId;
+    this.title = title;
+    this.transactionId = transactionId;
+    this.amount = amount;
+    this.charges = charges;
+    this.status = status;
+    this.withdraw = withdraw;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
   fromJson(jsonData) {
-    return new InvestmentModel(  
+    return new InvestmentModel(
       jsonData._id ?? null,
       jsonData.userId ?? "",
       jsonData.title ?? "",
       jsonData.transactionId ?? "",
       jsonData.amount != null ? parseFloat(jsonData.amount) : 0,
-      jsonData.charges != null ? parseFloat(jsonData.charges) : 0,
+      jsonData.charges != null ? parseFloat(jsonData.charges) : 2,
       jsonData.status != undefined ? JSON.parse(jsonData.status) : false,
+      jsonData.withdraw ?? false,
       jsonData.createdAt ?? new Date(),
       jsonData.updatedAt ?? new Date()
     );
   }
 
   toDatabaseJson() {
+    const chargesAmount = (this.amount * this.charges) / 100; // Calculate charges
+    const adjustedAmount = this.amount - chargesAmount; // Deduct charges from amount
+
     return {
       userId: this.userId,
       title: this.title,
       transactionId: this.transactionId,
-      amount: this.amount,
+      amount: adjustedAmount, // Save adjusted amount
       charges: this.charges,
       status: this.status,
+      withdraw: this.withdraw,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
@@ -84,4 +91,3 @@ class InvestmentModel {
 }
 
 export default InvestmentModel;
-

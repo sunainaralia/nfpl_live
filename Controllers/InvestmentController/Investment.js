@@ -55,7 +55,7 @@ class InvestmentController {
     try {
       const result = await collections
         .investmentCollection()
-        .insertOne(newInvestment.toDatabaseJson());
+        .insertOne(newInvestment.toDatabaseJson()); // `toDatabaseJson` will calculate the adjusted amount
 
       if (result && result.insertedId) {
         return {
@@ -74,6 +74,7 @@ class InvestmentController {
       };
     }
   }
+
 
   // Get investment by ID
   async getInvestmentById(id) {
