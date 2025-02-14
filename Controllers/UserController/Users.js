@@ -90,13 +90,13 @@ class User {
 
     try {
       const [users, count] = await Promise.all([
-        collections.userCollection().find().skip(skip).limit(limit * 10).toArray(),
+        collections.userCollection().find().skip(skip).limit(limit).toArray(),
         collections.userCollection().countDocuments()
       ]);
 
       if (users.length > 0) {
         users.forEach(user => {
-          user.image = readFile(user?.image)
+          user.image = user.image ? readFile(user?.image):""
         })
 
 
