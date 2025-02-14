@@ -1,0 +1,7 @@
+node_modules/
+./uploads
+uploads
+.env
+./.env
+/.env
+dotenv
