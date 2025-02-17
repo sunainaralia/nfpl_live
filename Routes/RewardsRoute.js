@@ -88,7 +88,6 @@ routes.get(
 );
 
 // Update reward API
-// checked
 routes.put(
   "/update-reward",
   upload.none(),

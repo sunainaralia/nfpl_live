@@ -120,11 +120,16 @@ routes.post(
 
 // Get User Members
 routes.get(
-  "/get-members",
+  "/get-members/",
   authMiddleware.verifyToken,
   async (req, res) => {
     try {
-      let userId = req.query?.userId ?? req.headers?.userid ?? req.headers?.userId;
+      let userId
+      if (req.query?.userId) {
+        userId = req.query?.userId
+      } else {
+        userId = req.headers?.userid ?? req.headers?.userId
+      }
       const result = await userController.getMembers(userId);
       return res.status(result.status).send(result);
     } catch (error) {

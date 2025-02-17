@@ -98,8 +98,6 @@ class User {
         users.forEach(user => {
           user.image = user.image ? readFile(user?.image):""
         })
-
-
         return {
           ...fetched("Users"),
           data: users,
@@ -413,6 +411,15 @@ class User {
           { _id: userObjectId },
           { $set: { memberCount: totalMembers } }
         );
+        const kycDetails = await collections.kycCollection().findOne({
+          userId: userObjectId.toString()
+        });
+        user.aadharNo = kycDetails.aadharNo;
+        user.aadharfile = kycDetails.aadharfile ? readFile(kycDetails?.aadharfile) : "";
+        user.panFile = kycDetails.panFile ? readFile(kycDetails?.panFile) : "";
+        user.panNo = kycDetails.panNo;
+        user.sign = kycDetails.sign ? readFile(kycDetails?.sign) : "";
+        user.kycStatus = kycDetails.status
         // Format response data
         let users = team.map(e => ({
           id: e._id ? e._id.toString() : null,
