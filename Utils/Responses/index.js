@@ -729,6 +729,10 @@ export const barNotExist = {
   status: 404,
   message: "Bar not found. Please check the Bar ID or try again.",
 };
+export const settingNotExist = {
+  status: 404,
+  message: "Minimum investment not found. Please try again.",
+};
 export const barNotExistInGivenRange = (range) => {
   return {
     status: 400,
@@ -957,9 +961,13 @@ export const userNotFound = {
   message: "User not found.",
 };
 
-export const incomeUpdated = {
+export const incomeActivate = {
   status: 200,
-  message: "Income updated successfully.",
+  message: "Income Activated successfully.",
+};
+export const rorActivate = {
+  status: 200,
+  message: "Ror Activated successfully.",
 };
 
 export const transactionFailed = {
@@ -971,3 +979,7 @@ export const rorIncomeAdded = {
   status: 200,
   message: "ROR income has been added successfully.",
 };
+export const notVerifiedYet = {
+  status: 400,
+  message: "you are not verified to login ,please contact admin team"
+}
