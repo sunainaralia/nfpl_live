@@ -20,7 +20,7 @@ routes.get(
     async (req, res) => {
         try {
             const { page = 0, limit = 10 } = req.query;
-            const userId = req.headers?.id ?? req.headers?.Id;
+            const userId = req.headers?.userid ?? req.headers?.userId ?? req.headers.id ?? req.headers.Id;
             const result = await adminController.getUsers(userId, page, parseInt(limit));
             return res.status(result.status).send(result);
         } catch (error) {
