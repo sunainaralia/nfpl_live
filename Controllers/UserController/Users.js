@@ -13,22 +13,14 @@ import {
   createAcc,
   debitedSub,
   deleted,
-  failedIncome,
   fetched,
-  forgetPasswordContent,
   idNotFound,
-  income,
   invalidLoginCred,
   invalidOtp,
   limitCrossed,
   loggedIn,
-  loginOtp,
-  noMember,
   notExist,
   otpSent,
-  otpSentSub,
-  otpVerified,
-  placementer,
   registered,
   serverError,
   tryAgain,
@@ -37,13 +29,10 @@ import {
   walletUpdated,
   emailSent,
   sentOtpfailed,
-  investmentNotFound,
-  transactionNotFound,
   userNotFound,
-  incomeUpdated,
+  incomeActivate,
   transactionFailed,
-  barNotExist,
-  barNotExistInGivenRange
+  rorActivate
 } from "../../Utils/Responses/index.js";
 import { options, sendMail, transponder } from "../../Utils/Mailer/index.js";
 import UserModel from "../../Models/userModel.js";
@@ -69,11 +58,13 @@ const __dirname = dirname(__filename);
 import SettingsModel from "../../Models/settingsModel.js";
 import sendEmail from "../../Utils/Mailer/SendMail.js";
 import bcrypt from 'bcrypt';
-import RegularIncomeModel from "../../Models/regularIncomeModel.js";
 import PortfolioModel from "../../Models/portfolio.js";
+import RegularIncome from "../RegularIncomeController/RegularIncome.js";
+import RegularIncomeModel from "../../Models/regularIncomeModel.js";
 // Models
 const incomeModel = new IncomeLog();
 const userModel = new UserModel();
+const regularIncomes = new RegularIncome();
 
 // Other controllers
 const incomeController = new Income();
@@ -90,14 +81,16 @@ class User {
 
     try {
       const [users, count] = await Promise.all([
-        collections.userCollection().find().skip(skip).limit(limit).toArray(),
+        collections.userCollection().find().skip(skip).limit(limit * 10).toArray(),
         collections.userCollection().countDocuments()
       ]);
 
       if (users.length > 0) {
         users.forEach(user => {
-          user.image = user.image ? readFile(user?.image) : ""
+          user.image = readFile(user?.image)
         })
+
+
         return {
           ...fetched("Users"),
           data: users,
@@ -354,12 +347,9 @@ class User {
       }
 
       // Set user level based on sponsor's level (handle maximum level condition)
-      let newLevel;
-      if (sponsorUser.level) {
-        newLevel = Number(sponsorUser.level) + 1;
-      } else {
-        newLevel = 0
-      }
+      sponsorUser.level
+      let newLevel = Number(sponsorUser.level) + 1;
+
       user.level = newLevel;
       // Add user to the database
       let res = await this.addUser(user.toDatabaseJson());
@@ -780,7 +770,6 @@ class User {
     try {
       const { id } = body;
       const user = new UserModel().toUpdateJson(body);
-
       // Update User Information
       const result = await collections.userCollection().updateOne(
         {
@@ -951,8 +940,7 @@ class User {
     };
     let user = await collections.userCollection().findOneAndUpdate(
       {
-        userId: userId,
-        // isVerified: true,
+        referalId: userId,
       },
       updateQuery,
       options,
@@ -1203,282 +1191,188 @@ class User {
     }
   }
 
-  async addIncomeToUser(userId, income, session) {
-    try {
-      const user = await collections.userCollection().findOne(
-        { _id: new ObjectId(userId) },
-        { session, projection: { sourceId: 1, level: 1 } }
-      );
-
-      if (!user) return { status: userNotFound.status, message: userNotFound.message };
-
-      const tdsSetting = await collections.settingsCollection().findOne(
-        { title: "tds" },
-        { session }
-      );
-      const tdsRate = parseFloat(tdsSetting?.value) || 0;
-      const tdsAmount = (income * tdsRate) / 100;
-      const userLevel = user.level || 0;
-      const sourceId = user.sourceId || null;
-
-      // Create new income entry
-      const newIncome = new IncomeModel(
-        null,
-        userId,
-        sourceId,
-        userLevel,
-        income,
-        "roi",
-        tdsAmount,
-        deductedAmount,
-        true,
-        new Date(),
-        new Date()
-      );
-
-      // Insert income entry into the database
-      await collections.incomeCollection().insertOne(newIncome.toDatabaseJson(), { session });
-      return { status: 200, message: "Income added successfully." };
-    } catch (error) {
-      console.error("Error adding income:", error);
-      return { status: serverError.status, message: serverError.message };
-    }
-  }
-
-  async calculateTeamInvestment(sponsorId, level, session) {
-    if (!sponsorId) return 0;
-    const sponsor = await collections.userCollection().findOne(
-      { referalId: sponsorId },
-      { session, projection: { referalId: 1 } }
-    );
-
-    if (!sponsor) return 0;
-
-    const aggregationResult = await collections.userCollection().aggregate([
-      {
-        $match: { sponsorId: sponsor.referalId }
-      },
-      {
-        $graphLookup: {
-          from: "users",
-          startWith: sponsor.referalId,
-          connectFromField: "referalId",
-          connectToField: "sponsorId",
-          as: "teamMembers",
-          maxDepth: level - 1,
-          depthField: "depth"
-        }
-      },
-      { $unwind: "$teamMembers" },
-      {
-        $group: {
-          _id: null,
-          totalInvestment: { $sum: "$teamMembers.totalInvestment" }
-        }
-      }
-    ], { session }).toArray();
-
-    return aggregationResult[0]?.totalInvestment || 0;
-  }
-
   async updateUsersIncome(req) {
     const session = client.startSession();
     let result = false;
     const { investmentId } = req.body;
-
     try {
       session.startTransaction();
-
       // Fetch investment details
       const investment = await collections.investmentCollection().findOne(
         { _id: new ObjectId(investmentId) },
-        { session }
+        { returnDocument: "before", session }
       );
-      if (!investment) return investmentNotFound;
-
-      // Fetch transaction details
-      const transaction = await collections.transCollection().findOne(
-        { transactionId: investment.transactionId },
-        { session }
-      );
-      if (!transaction) return transactionNotFound;
-
-      const range = investment.amount;
-      // Fetch portfolio details
-      let portfolio = await collections.portfolioCollection().findOne(
-        { userId: investment.userId },
-        { session }
-      );
-      // Fetch user details
       const user = await collections.userCollection().findOne(
         { _id: new ObjectId(investment.userId) },
         { session }
       );
-      if (!user) return userNotFound;
-      let totalInvestedAmount;
-      let calculatedRoi;
-      if (portfolio) {
-        totalInvestedAmount = portfolio.amount + range
-
-        // Fetch bars settings for ROI calculation
-        const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray({ session });
-        if (bars.length === 0) return barNotExist;
-        if (totalInvestedAmount <= bars[0].range) return barNotExistInGivenRange(bars[0].range);
-
-        let selectedBar = null;
-        for (let i = 0; i < bars.length; i++) {
-          if (i === bars.length - 1 || (totalInvestedAmount > bars[i].range && totalInvestedAmount <= bars[i + 1].range)) {
-            selectedBar = bars[i];
-            break;
-          }
-        }
-        if (!selectedBar) return barNotExist;
-
-        const monthlyReturnRate = selectedBar?.rate || 0;
-        const monthlyRate = monthlyReturnRate / 100;
-        calculatedRoi = totalInvestedAmount * monthlyRate;
-
-        await collections.portfolioCollection().updateOne(
-          { userId: investment.userId },
-          {
-            $inc: {
-              amount: range
-            },
-            $set: { updatedAt: new Date(), totalRoi: calculatedRoi, title: selectedBar.title }
-          },
-          { session }
-        );
-
-      } else {
-
-        totalInvestedAmount = range
-
-        // Fetch bars settings for ROI calculation
-        const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray({ session });
-        if (bars.length === 0) return barNotExist;
-        if (totalInvestedAmount <= bars[0].range) return barNotExistInGivenRange(bars[0].range);
-
-        let selectedBar = null;
-        for (let i = 0; i < bars.length; i++) {
-          if (i === bars.length - 1 || (totalInvestedAmount > bars[i].range && totalInvestedAmount <= bars[i + 1].range)) {
-            selectedBar = bars[i];
-            break;
-          }
-        }
-        if (!selectedBar) return barNotExist;
-
-        const monthlyReturnRate = selectedBar?.rate || 0;
-        const monthlyRate = monthlyReturnRate / 100;
-        calculatedRoi = totalInvestedAmount * monthlyRate;
-        const newPortfolio = new PortfolioModel(
-          null,
-          investment.userId,
-          investment.title,
-          user.sponsorId,
-          totalInvestedAmount,
-          true,
-          calculatedRoi,
-          new Date(),
-          new Date()
-        );
-
-        await collections.portfolioCollection().insertOne(
-          newPortfolio.toDatabaseJson(),
-          { session }
-        );
-        // Update user earnings and total investment
-        await collections.userCollection().updateOne(
-          { _id: investment.userId },
-          {
-            $inc: { totalInvestment: transaction.amount },
-            $set: { earnings: calculatedRoi }
-          },
-          { session }
-        );
-      }
-
-      // ---------------- ROR Calculation -----------------
-      const minInvestmentSetting = await collections.settingsCollection().findOne(
-        { title: 'min-investment' },
+      // Fetch transaction details
+      const transaction = await collections.transCollection().findOne(
+        { _id: investment.transactionId },
         { session }
       );
-      const minInvestment = parseFloat(minInvestmentSetting?.value) || 0;
 
-      let currentSponsorId = user.sponsorId;
+      let portfolio = await collections.portfolioCollection().findOne(
+        { userId: investment.userId },
+        { session }
+      );
 
-      for (let level = 1; level <= 15; level++) {
-        if (!currentSponsorId) break;
+      const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray({ session });
 
-        const sponsor = await collections.userCollection().findOne(
-          { referalId: currentSponsorId },
-          { session }
-        );
-        if (!sponsor) {
-          currentSponsorId = null;
-          continue;
-        }
+      const minInvestment = await collections.settingsCollection().findOne(
+        { type: 'min-investment' },
+        { session }
+      );
 
-        // Calculate team's total investment up to the current level
-        const teamInvestment = await calculateTeamInvestment(sponsor.referalId, level, session);
-        const requiredInvestment = minInvestment * level;
-
-        if (teamInvestment < requiredInvestment) {
-          currentSponsorId = sponsor.sponsorId;
-          continue;
-        }
-
-        // Fetch ROR distribution rate for this level
-        const distribution = await collections.distributionCollection().findOne(
-          { level: level, type: 'ror' },
-          { session }
-        );
-        if (!distribution) {
-          currentSponsorId = sponsor.sponsorId;
-          continue;
-        }
-
-        const rorAmount = calculatedRoi * (distribution.rate / 100);
-
-        await collections.userCollection().updateOne(
-          { referalId: sponsor.referalId },
-          {
-            $inc: { earnings: rorAmount, wallet: rorAmount }
-          },
-          { session }
-        );
-
-        const rorIncome = new RegularIncomeModel(
-          null,
-          sponsor.referalId,
-          level,
-          investmentId,
-          user.referalId,
-          'ror',
-          true,
-          new Date(),
-          null,
-          new Date()
-        );
-        await collections.regularIncomeCollection().insertOne(
-          rorIncome.toDatabaseJson(),
-          { session }
-        );
-
-        currentSponsorId = sponsor.sponsorId;
+      const levels = await collections.settingsCollection().findOne(
+        { type: 'level' },
+        { session }
+      );
+      const distributions = await collections.distributionCollection().find({ status: true }).sort({ level: 1 }).toArray();
+      if (!transaction || !investment || !user || bars.length < 1 || !minInvestment || !distributions || investment.status) {
+        await session.abortTransaction();
+        return tryAgain
+      };
+      const updateInvestment = await collections.investmentCollection().updateOne(
+        { _id: new ObjectId(investmentId) },
+        { $set: { status: true } },
+        { session }
+      );
+      if (!updateInvestment) {
+        await session.abortTransaction();
+        return tryAgain
       }
 
-      await session.commitTransaction();
-      return incomeUpdated;
+      const existingInvestment = portfolio?.amount ?? 0;
+      const range = investment.amount + parseFloat(existingInvestment);
+      const selectedBar = bars.find(e => range <= e.range) ?? {};
+      if (!selectedBar) return tryAgain;
+      const roi = range * selectedBar.rate / 100;
+      const currentRoi = investment.amount * selectedBar.rate / 100;
+      if (portfolio) {
+        let pResult = await collections.portfolioCollection().updateOne({ userId: investment.userId }, { $set: { amount: range, totalRoi: roi, title: selectedBar.title } }, { session })
+        if (pResult.modifiedCount < 1) {
+          await session.abortTransaction();
+          return tryAgain;
+        };
+      } else {
+        let newPortfolio = new PortfolioModel(null, investment?.userId, selectedBar.title, user.sponsorId, range, true, roi, new Date(), new Date());
+        let pResult = await collections.portfolioCollection().insertOne(newPortfolio.toDatabaseJson(), { session });
+        if (!pResult.insertedId) {
+          await session.abortTransaction();
+          return tryAgain
+        };
+      }
 
+      let updateUser = await this.addNewIncome(user?.referalId, { $inc: { totalInvestment: investment.amount }, $set: { status: true } }, session);
+      if (updateUser.modifiedCount == 0) {
+        await session.abortTransaction();
+        console.log("user update fail");
+        return tryAgain;
+      }
+      // ---------------- ROR Calculation -----------------
+      if (user.level > 0) {
+        let currentSponsorId = user.sponsorId;
+        let i = 1;
+
+        // UNLOCK LEVEL FOR DIRECT USER IF ANY
+        let directInvestment = await collections.portfolioCollection().aggregate([
+          {
+            $match: { $and: [{ sponsorId: currentSponsorId }, { status: true }] }
+          },
+          {
+            $group: {
+              _id: null,
+              totalInvest: { $sum: "$amount" }
+            }
+          }
+        ], { session }).toArray();
+
+        if (directInvestment.length < 1 && directInvestment[0].totalInvest == undefined) {
+          await session.abortTransaction();
+          return tryAgain;
+        }
+
+        let unlockedLevel = (directInvestment[0]?.totalInvest + investment.amount) / parseFloat(minInvestment.value * 2);
+
+        let updateQuery = {
+          $set: { unlocked: parseInt(unlockedLevel) > levels?.value ? levels?.value : parseInt(unlockedLevel) },
+          $inc: { member: investment.amount }
+        };
+        while (i <= levels?.value) {
+
+          let updateSponsor = await this.addNewIncome(currentSponsorId, updateQuery, session);
+
+          if (updateSponsor) {
+            delete updateQuery["$set"];
+            let rorRate = await distributions.find(e => i <= parseInt(e.level))?.rate ?? 0;
+            let newRor = new RegularIncomeModel(null, updateSponsor._id, i, investment._id, parseFloat(currentRoi * rorRate / 100), user._id, "ror", (updateSponsor.unlocked + 1) >= i, new Date(), new Date(), new Date());
+            let rorResult = await collections.regularIncomeCollection().insertOne(newRor.toDatabaseJson(), { session });
+            if (!rorResult.insertedId) {
+              result = false;
+              break;
+            }
+            if (updateSponsor.level == 0) {
+              result = true;
+              break;
+            }
+            currentSponsorId = updateSponsor.sponsorId;
+            i++;
+          } else {
+            result = false;
+            break;
+          }
+        };
+      } else {
+        result = true;
+      }
+      if (result) {
+        await session.commitTransaction();
+        return incomeActivate;
+
+      } else {
+        await session.abortTransaction();
+        return { ...tryAgain };
+      }
     } catch (error) {
       await session.abortTransaction();
       console.error("Transaction error:", error);
-      return transactionFailed;
+      return serverError;
     } finally {
       await session.endSession();
     }
-  }
+  };
+  // update ror
+  async updateUserRor(req) {
+    try {
+      const { id } = req.body;
+      const regularIncomes = await collections.regularIncomeCollection().findOne({
+        _id: new ObjectId(id)
+      });
+      const user = await collections.userCollection().findOne({ _id: regularIncomes.userId });
+      if (!regularIncomes || !user) {
+        console.log("error")
+        return tryAgain;
+      }
+      if (regularIncomes.level <= user.unlocked) {
+        const updateRegularIncome = await collections.regularIncomeCollection().findOneAndUpdate({
+          _id: new ObjectId(id),
+          $set: {
+            status: true
+          }
+        });
+        if (updateRegularIncome.modifiedCount == 0) {
+          return tryAgain;
+        }
+        return rorActivate;
+      } else {
+        return tryAgain;
+      }
+    } catch (err) {
+      return tryAgain;
+    }
 
+  }
 
 };
 
