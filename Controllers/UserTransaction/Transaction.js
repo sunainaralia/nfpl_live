@@ -253,10 +253,9 @@ class UserTrans extends Notifications {
         .find({
           $and: [{
             userId: value,
-          }, { createdAt: { $gte: startDate, $lt: endDate } }]
+          }]
         })
         .toArray();
-
       if (result && result.length > 0) {
         return {
           ...fetched("User Transaction"),

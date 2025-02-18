@@ -96,7 +96,7 @@ class User {
 
       if (users.length > 0) {
         users.forEach(user => {
-          user.image = user.image ? readFile(user?.image):""
+          user.image = user.image ? readFile(user?.image) : ""
         })
         return {
           ...fetched("Users"),
@@ -349,13 +349,17 @@ class User {
       }
 
       // Ensure sponsor is valid and has a valid level
-      // if (!sponsorUser?.status) {
-      //   return InvalidId("Sponsor");
-      // }
+      if (!sponsorUser?.status) {
+        return InvalidId("Sponsor");
+      }
 
       // Set user level based on sponsor's level (handle maximum level condition)
-      let newLevel = Number(sponsorUser.level) + 1;
-
+      let newLevel;
+      if (sponsorUser.level) {
+        newLevel = Number(sponsorUser.level) + 1;
+      } else {
+        newLevel = 0
+      }
       user.level = newLevel;
       // Add user to the database
       let res = await this.addUser(user.toDatabaseJson());
