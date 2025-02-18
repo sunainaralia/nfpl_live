@@ -1346,33 +1346,53 @@ class User {
   async updateUserRor(req) {
     try {
       const { id } = req.body;
+
+      // Validate ObjectId
+      if (!ObjectId.isValid(id)) {
+        return InvalidId("Regular Income");
+      }
+
+      // Fetch Regular Income record
       const regularIncomes = await collections.regularIncomeCollection().findOne({
         _id: new ObjectId(id)
       });
-      const user = await collections.userCollection().findOne({ _id: regularIncomes.userId });
-      if (!regularIncomes || !user) {
-        console.log("error")
+
+      // Ensure regularIncomes exists before accessing properties
+      if (!regularIncomes) {
         return tryAgain;
       }
+
+      // Fetch User record
+      const user = await collections.userCollection().findOne({ _id: new ObjectId(regularIncomes.userId) });
+
+      // Ensure user exists
+      if (!user) {
+        return tryAgain;
+      }
+
+      // Check if the level is allowed
       if (regularIncomes.level <= user.unlocked) {
-        const updateRegularIncome = await collections.regularIncomeCollection().findOneAndUpdate({
-          _id: new ObjectId(id),
-          $set: {
-            status: true
-          }
-        });
-        if (updateRegularIncome.modifiedCount == 0) {
+        const updateRegularIncome = await collections.regularIncomeCollection().findOneAndUpdate(
+          { _id: new ObjectId(id) }, // Filter
+          { $set: { status: true } }, // Update
+          { returnDocument: "after" } // Returns updated document
+        );
+
+        // Check if an update was made
+        if (!updateRegularIncome.value) {
           return tryAgain;
         }
+
         return rorActivate;
       } else {
         return tryAgain;
       }
     } catch (err) {
+      console.error("Error in updateUserRor:", err);
       return tryAgain;
     }
-
   }
+
 
 };
 

@@ -290,11 +290,26 @@ routes.delete("/delete-user/:id", authMiddleware.verifyToken, authMiddleware.che
 routes.post(
   "/update-user-income",
   authMiddleware.verifyToken,
-  authMiddleware.checkAuth,
+  // authMiddleware.checkAuth,
   authMiddleware.checkFields(["investmentId"]),
   async (req, res) => {
     try {
       const result = await userController.updateUsersIncome(req);
+      return res.status(result.status).send(result);
+    } catch (error) {
+      console.error("Error updating user income:", error);
+      return res.status(serverError.status).send(serverError);
+    }
+  }
+);
+routes.post(
+  "/update-user-ror",
+  // authMiddleware.verifyToken,
+  // authMiddleware.checkAuth,
+  authMiddleware.checkFields(["id"]),
+  async (req, res) => {
+    try {
+      const result = await userController.updateUserRor(req);
       return res.status(result.status).send(result);
     } catch (error) {
       console.error("Error updating user income:", error);
