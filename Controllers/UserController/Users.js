@@ -608,6 +608,10 @@ class User {
           kyc.panFile = readFile(kyc?.panFile);
           kyc.sign = readFile(kyc?.sign);
         }
+        const totalTransaction = await collections.transCollection().countDocuments({ userId: value, status: true });
+        const portfolio = await collections.portfolioCollection().findOne({ userId: value, status: true });
+        console.log(portfolio);
+        console.log(totalTransaction)
 
         return {
           ...fetched("Your"),
@@ -615,6 +619,8 @@ class User {
             user: newUser,
             kyc: kyc,
             unread: unread ?? 0,
+            totalTransaction: totalTransaction ?? 0,
+            roi: portfolio?.totalRoi ?? 0
           },
         };
       } else {

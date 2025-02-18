@@ -983,3 +983,14 @@ export const notVerifiedYet = {
   status: 400,
   message: "you are not verified to login ,please contact admin team"
 }
+export const incomeGraph = (rorIncome, roiIncome, achievements) => {
+  return {
+    status: 200,
+    message: "graph is fetched successfully",
+    data: {
+      rorIncome: rorIncome,
+      roiIncome: roiIncome,
+      achievementsIncome: achievements
+    }
+  }
+}

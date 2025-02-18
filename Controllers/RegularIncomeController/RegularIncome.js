@@ -68,8 +68,16 @@ class RegularIncome {
       const result = await collections.regularIncomeCollection().find({
         userId: new ObjectId(id),
       }).toArray();
+      const user = await collections.userCollection().findOne({ _id: new ObjectId(id) });
+      if (!user) {
+        return InvalidId("User");
+      }
+      const updatedResult = result.map(income => ({
+        ...income,
+        unlock: user.unlocked
+      }));
       if (result) {
-        return { ...fetched("Regular Income"), data: result };
+        return { ...fetched("Regular Income"), data: updatedResult };
       } else {
         return InvalidId("User");
       }

@@ -455,10 +455,10 @@ class UserTrans extends Notifications {
         return barNotExist;
       }
 
-      const charges = selectedBar.charges;
+
+      const charges = parseInt(selectedBar.charges);
       const deductedAmount = (range * charges) / 100
       const deductedRange = range - deductedAmount
-
       trans.charges = deductedAmount;
       const taxSettings = await collections.settingsCollection().findOne({ type: "tax-configuration" });
       if (!taxSettings) {
@@ -471,7 +471,6 @@ class UserTrans extends Notifications {
       let user = await collections.userCollection().findOne({ _id: new ObjectId(trans.userId) });
       if (user && user._id) {
         const invoiceNo = `oum|${await collections.transCollection().countDocuments() + 1}`;
-        console.log(invoiceNo)
         trans.invoiceNo = invoiceNo;
         trans.status = true;
         const result = await collections.transCollection().insertOne(trans.toDatabaseJson());
