@@ -14,7 +14,8 @@ import {
   transaction,
   idNotFound,
   barNotExist,
-  barNotExistInGivenRange
+  barNotExistInGivenRange,
+  settingNotExist
 } from "../../Utils/Responses/index.js";
 import UserTransactionModel from "../../Models/transactionModel.js";
 import Notifications from "../NotificationController/Notifications.js";
@@ -29,6 +30,7 @@ import collections from "../../Utils/Collections/collections.js";
 import { client } from "../../dbConnection.js";
 import { options, sendMail, transponder } from "../../Utils/Mailer/index.js";
 import InvestmentModel from "../../Models/InvestmentModel.js";
+import Auth from "../../Middlewares/Authentication/index.js";
 // import { sendSms } from "../../Mailer/smsService.js";
 
 // Models
@@ -36,7 +38,7 @@ const userTrans = new UserTransactionModel();
 
 // User Controller
 const user = new User();
-
+const authentications = new Auth();
 class UserTrans extends Notifications {
   constructor() {
     super();
@@ -434,28 +436,29 @@ class UserTrans extends Notifications {
       const trans = userTrans.fromJson(body);
       const range = trans.amount;
       const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray();
-      if (bars.length === 0) {
-        return barNotExist;
+      if (bars.length === 0) return barNotExist;
+      const settingCollections = await collections.settingsCollection().findOne({ type: "min-investment", status: true });
+      if (!settingCollections) {
+        return settingNotExist;
       }
-      if (range < bars[0].range) {
-        return barNotExistInGivenRange(bars[0].range)
+      const requiredMinInvestment = parseFloat(settingCollections.value);
+      if (range < requiredMinInvestment) {
+        return barNotExistInGivenRange(requiredMinInvestment);
       }
-
-      let selectedBar = null;
-      for (let i = 0; i < bars.length; i++) {
-        if (i === bars.length - 1 || (range > bars[i].range && range <= bars[i + 1].range)) {
-          selectedBar = bars[i];
-          break;
-        }
-      }
+      const selectedBar = bars.find((bar, index) => {
+        return (
+          index === bars.length - 1 ||
+          (range > bar.range && range <= bars[index + 1].range)
+        );
+      });
       if (!selectedBar) {
         return barNotExist;
       }
-      const monthlyReturnRate = selectedBar.rate;
+
       const charges = selectedBar.charges;
       const deductedAmount = (range * charges) / 100
       const deductedRange = range - deductedAmount
-      const monthlyRate = (monthlyReturnRate / 100);
+
       trans.charges = deductedAmount;
       const taxSettings = await collections.settingsCollection().findOne({ type: "tax-configuration" });
       if (!taxSettings) {
@@ -464,10 +467,11 @@ class UserTrans extends Notifications {
       const taxRate = taxSettings.value;
       trans.tax = parseInt(taxRate);
       trans.status = true;
+      trans.paymentMethod = trans.paymentMethod;
       let user = await collections.userCollection().findOne({ _id: new ObjectId(trans.userId) });
-      console.log(user)
       if (user && user._id) {
-        const invoiceNo = `oum${await collections.transCollection().countDocuments() + 1}`;
+        const invoiceNo = `oum|${await collections.transCollection().countDocuments() + 1}`;
+        console.log(invoiceNo)
         trans.invoiceNo = invoiceNo;
         trans.status = true;
         const result = await collections.transCollection().insertOne(trans.toDatabaseJson());

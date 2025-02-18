@@ -1342,6 +1342,8 @@ class User {
       await session.endSession();
     }
   };
+
+
   // update ror
   async updateUserRor(req) {
     try {
@@ -1356,16 +1358,10 @@ class User {
       const regularIncomes = await collections.regularIncomeCollection().findOne({
         _id: new ObjectId(id)
       });
-
-      // Ensure regularIncomes exists before accessing properties
       if (!regularIncomes) {
         return tryAgain;
       }
-
-      // Fetch User record
       const user = await collections.userCollection().findOne({ _id: new ObjectId(regularIncomes.userId) });
-
-      // Ensure user exists
       if (!user) {
         return tryAgain;
       }
@@ -1373,16 +1369,13 @@ class User {
       // Check if the level is allowed
       if (regularIncomes.level <= user.unlocked) {
         const updateRegularIncome = await collections.regularIncomeCollection().findOneAndUpdate(
-          { _id: new ObjectId(id) }, // Filter
-          { $set: { status: true } }, // Update
-          { returnDocument: "after" } // Returns updated document
+          { _id: new ObjectId(id) },
+          { $set: { status: true } },
+          { returnDocument: "after" }
         );
-
-        // Check if an update was made
-        if (!updateRegularIncome.value) {
+        if (!updateRegularIncome.status) {
           return tryAgain;
         }
-
         return rorActivate;
       } else {
         return tryAgain;

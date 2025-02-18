@@ -18,6 +18,9 @@ import {
   unauthorized,
   userExists,
   withdrawReported,
+  barNotExistInGivenRange,
+  settingNotExist
+
 } from "../../Utils/Responses/index.js";
 import jwt from "jsonwebtoken";
 import collections from "../../Utils/Collections/collections.js";
@@ -371,6 +374,20 @@ class Auth {
       return res.status(serverError.status).send(serverError);
     }
   };
+  verifyMinInvestment = async (range) => {
+    try {
+      const settingCollections = await collection.settingsCollection().findOne({ type: "min-investment", status: true });
+      if (!settingCollections) {
+        return settingNotExist;
+      }
+      const requiredMinInvestment = parseFloat(settingCollections.value);
+      if (range < requiredMinInvestment) {
+        return barNotExistInGivenRange(requiredMinInvestment);
+      }
+    } catch (err) {
+      return res.status(serverError.status).send(serverError);
+    }
+  }
 }
 
 export default Auth;

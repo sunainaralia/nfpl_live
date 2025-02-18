@@ -19,7 +19,6 @@ routes.get(
   async (req, res) => {
     try {
       let { page, limit = 10 } = req.query;
-
       const result = await usertrans.getUserTrans(page, parseInt(limit));
       res.status(result.status).send(result);
     } catch (error) {
@@ -36,7 +35,7 @@ routes.post(
   "/create-transaction",
   upload.none(),
   authController.verifyToken,
-  authController.checkFields(["userId","amount"]),
+  authController.checkFields(["userId", "amount", "paymentMethod"]),
   async (req, res) => {
     try {
       const result = await usertrans.createTransaction({
