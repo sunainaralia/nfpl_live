@@ -12,7 +12,7 @@ const settings = new Settings();
 const authController = new Auth();
 
 // Get All Sources with Pagination
-routes.get("/settings", authController.verifyToken, async (req, res) => {
+routes.get("/settings", authController.verifyToken, authController.checkAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 0;
     const limit = parseInt(req.query.limit) || 10;
@@ -84,7 +84,7 @@ routes.get(
 );
 
 // Get Source by Type
-routes.get("/settings/type/:type", authController.verifyToken, async (req, res) => {
+routes.get("/settings/type/:type", async (req, res) => {
   try {
     const result = await settings.getSettingsByType(req.params.type);
     return res.status(result.status).send(result);
