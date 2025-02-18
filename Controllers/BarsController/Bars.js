@@ -1,9 +1,10 @@
 import BarsModel from "../../Models/barsModel.js";
-import { barFetched, barCreated, barUpdated, barDeleted, barNotExist, tryAgain, serverError, barNotExistInGivenRange } from "../../Utils/Responses/index.js";
+import { barFetched, barCreated, barUpdated, barDeleted, barNotExist, tryAgain, serverError, barNotExistInGivenRange, settingNotExist } from "../../Utils/Responses/index.js";
 import { ObjectId } from "mongodb";
 import collections from "../../Utils/Collections/collections.js";
+import Auth from "../../Middlewares/Authentication/index.js";
 const bar = new BarsModel();
-
+const authentications = new Auth()
 class BarsController {
   constructor() { }
 
@@ -126,21 +127,21 @@ class BarsController {
   async getBarByRange(range) {
     try {
       const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray();
-
-      if (bars.length === 0) {
-        return barNotExist;
+      if (bars.length === 0) return barNotExist;
+      const settingCollections = await collections.settingsCollection().findOne({ type: "min-investment", status: true });
+      if (!settingCollections) {
+        return settingNotExist;
       }
-      if (range <= bars[0].range) {
-        return barNotExistInGivenRange(bars[0].range)
+      const requiredMinInvestment = parseFloat(settingCollections.value);
+      if (range < requiredMinInvestment) {
+        return barNotExistInGivenRange(requiredMinInvestment);
       }
-
-      let selectedBar = null;
-      for (let i = 0; i < bars.length; i++) {
-        if (i === bars.length - 1 || (range > bars[i].range && range <= bars[i + 1].range)) {
-          selectedBar = bars[i];
-          break;
-        }
-      }
+      const selectedBar = bars.find((bar, index) => {
+        return (
+          index === bars.length - 1 ||
+          (range > bar.range && range <= bars[index + 1].range)
+        );
+      });
       if (!selectedBar) {
         return barNotExist;
       }

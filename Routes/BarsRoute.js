@@ -13,7 +13,6 @@ const barsController = new BarsController();
 const authController = new Auth();
 
 // Get all bars (with pagination and type filtering)
-// checked
 routes.get(
   "/get-bars",
   async (req, res) => {
@@ -28,7 +27,6 @@ routes.get(
 );
 
 // Add a new bar
-// checked
 routes.post(
   "/create-bar",
   upload.none(),
