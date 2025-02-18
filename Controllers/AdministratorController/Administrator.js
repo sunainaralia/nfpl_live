@@ -28,6 +28,7 @@ import {
     serverError,
     tryAgain,
     userActivated,
+    notVerifiedYet
 } from "../../Utils/Responses/index.js";
 import { options, sendMail, transponder } from '../../Utils/Mailer/index.js';
 import collections from "../../Utils/Collections/collections.js";
@@ -39,7 +40,6 @@ import UserModel from "../../Models/adminModel.js";
 class Admin {
     constructor() {
     }
-
     async getUsers(id, page, limit) {
         let skip = parseInt(page) * limit;
         try {
@@ -70,46 +70,49 @@ class Admin {
             const result = await collections.adminCollection().findOne({
                 email: email.toLowerCase()
             });
-            console.log(result)
 
             if (result && result.email === email) {
-                if (result.attempt > 0) {
+                if (result.status && result.isVerified) {
+                    if (result.attempt > 0) {
+                        const comparedPassword = await ComparePassword(password, result.password);
+                        if (comparedPassword) {
+                            if (result.attempt < 5) {
+                                await collections.adminCollection().updateOne(
+                                    { _id: result._id },
+                                    { $set: { attempt: 5 } }
+                                );
+                            }
 
-                    const comparedPassword = await ComparePassword(password, result.password);
-
-                    if (comparedPassword) {
-                        if (result.attempt < 5) {
+                            const token = jwt.sign({ id: result._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+                            return res.status(loggedIn.status).send({
+                                ...loggedIn,
+                                type: result.type,
+                                data: { id: result._id, token: token, referalId: result.referalId }
+                            });
+                        } else {
+                            // Decrement the attempt count in the database
                             await collections.adminCollection().updateOne(
                                 { _id: result._id },
-                                { $set: { attempt: 5 } }
+                                { $inc: { attempt: -1 } }
                             );
+
+                            // Fetch the updated document to get the new attempt value
+                            const updatedResult = await collections.adminCollection().findOne({ _id: result._id });
+
+                            const response = invalidLoginCred(updatedResult.attempt);
+                            return res.status(response.status).send({
+                                ...response,
+                                remainingAttempts: parseInt(updatedResult.attempt),
+                            });
                         }
-
-                        const token = jwt.sign({ id: result._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
-                        return res.status(loggedIn.status).send({
-                            ...loggedIn,
-                            type: result.type,
-                            data: { id: result._id, token: token, referalId: result.referalId }
-                        });
                     } else {
-                        // Decrement the attempt count in the database
-                        await collections.adminCollection().updateOne(
-                            { _id: result._id },
-                            { $inc: { attempt: -1 } }
-                        );
-
-                        // Fetch the updated document to get the new attempt value
-                        const updatedResult = await collections.adminCollection().findOne({ _id: result._id });
-
-                        const response = invalidLoginCred(updatedResult.attempt);
-                        return res.status(response.status).send({
-                            ...response,
-                            remainingAttempts: parseInt(updatedResult.attempt),
-                        });
+                        return res.status(limitCrossed.status).send(limitCrossed);
                     }
                 } else {
-                    return res.status(limitCrossed.status).send(limitCrossed);
+                    const response = notVerifiedYet;
+                    return res.status(response.status).send(response);
                 }
+
             } else {
                 const response = InvalidId("User");
                 return res.status(response.status).send(response);
@@ -121,16 +124,13 @@ class Admin {
         }
     }
 
-
-
-
     // Static new user controller
     async addUser(user) {
         let referalId = generatereferalId();
         while (!await isreferalIdUnique(referalId)) {
-            referalId = generatereferalId(); // Keep generating until it's unique
+            referalId = generatereferalId();
         }
-        user.referalId = referalId; // Set the referral_key on the user
+        user.referalId = referalId;
 
         const res = await collections.adminCollection().insertOne(user);
         if (res.acknowledged && res.insertedId) {
@@ -159,8 +159,11 @@ class Admin {
 
     async registerAdmin(body) {
         try {
-            // Use AdminModel instead of UserModel
             const user = UserModel.fromJson(body);
+            if (user.type == "super-admin") {
+                user.isVerified = true;
+                user.status = true;
+            }
 
             // Generate referalId and ensure it's unique
             let referalId = generatereferalId();
