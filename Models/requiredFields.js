@@ -31,7 +31,7 @@ export const reqFields = {
   con: ["userId", "storage", "transactionId"],
 
   // Slabs Fields
-  slab: ["range", "title", "type", "adminId", "rate", "tenure"],
+  slab: ["range", "title", "type", "adminId", "rate"],
 
   // Royality
   royality: ["range", "level", "rate", "rule", "status", "designation"],
