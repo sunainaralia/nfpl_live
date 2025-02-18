@@ -18,6 +18,7 @@ import userTrans from "./Routes/UserTransaction.js";
 import investmentRoutes from "./Routes/InvestmentRoute.js";
 // import pages from "./Routes/AppRoutes.js";
 import notification from "./Routes/NotificationRoute.js";
+import portfolioRoutes from "./Routes/PortfolioRoute.js";
 import { connectToMongo } from "./dbConnection.js";
 import cors from 'cors';
 import { urlNotFound } from "./Utils/Responses/index.js";
@@ -54,7 +55,7 @@ app.use("/api/v1", userTrans);
 app.use("/api/v1", admin);
 app.use("/api/v1", investmentRoutes);
 // app.use("/api/v1", pages);
-
+app.use("/api/v1", portfolioRoutes)
 // handling the error when no routes are found
 app.use("/",(req,res)=>{
   res.status(200).send({
