@@ -780,7 +780,7 @@ class User {
       // Update User Information
       const result = await collections.userCollection().updateOne(
         {
-          userId: id,
+          _id: new ObjectId(id),
         },
         {
           $set: {
