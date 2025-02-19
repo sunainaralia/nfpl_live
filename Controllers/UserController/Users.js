@@ -32,7 +32,8 @@ import {
   userNotFound,
   incomeActivate,
   transactionFailed,
-  rorActivate
+  rorActivate,
+  incomeGraph
 } from "../../Utils/Responses/index.js";
 import { options, sendMail, transponder } from "../../Utils/Mailer/index.js";
 import UserModel from "../../Models/userModel.js";
@@ -1390,6 +1391,102 @@ class User {
     }
   }
 
+  // get income percent graph
+
+  async getIncomeGraph(req) {
+    try {
+      const userId = req.params.userId;
+      if (!ObjectId.isValid(userId)) {
+        return InvalidId("UserId");
+      }
+      const user = await collections.userCollection().findOne({ _id: new ObjectId(userId) });
+      const portfolio = await collections.portfolioCollection().findOne({ $and: [{ userId: userId }, { status: true }] });
+      if (!user) {
+        return tryAgain;
+      }
+      const wallet = parseFloat(user.wallet) || 0;
+      const earnings = parseFloat(user.earnings) || 1;
+      const totalRoi = parseFloat(portfolio?.totalRoi) || 0;
+      const rorIncome = parseFloat((wallet / earnings) * 100).toFixed(2);
+      const roiIncome = parseFloat((totalRoi / earnings) * 100).toFixed(2);
+      const achievements = parseFloat(((earnings - (totalRoi + wallet)) / earnings) * 100).toFixed(2);
+      return incomeGraph(rorIncome, roiIncome, achievements);
+    } catch (err) {
+      console.error("Error in fetching User's income graph:", err);
+      return tryAgain;
+    }
+  }
+
+
+  async getTeamInvestments(req) {
+    try {
+      const userId = req.headers.userid;
+      const year = parseInt(req.query?.year ?? new Date().getFullYear());
+
+      if (!ObjectId.isValid(userId)) {
+        return InvalidId("User");
+      }
+
+      const userObjectId = new ObjectId(userId);
+      const user = await collections.userCollection().findOne({ _id: userObjectId });
+      if (!user) return idNotFound;
+
+      // Fetch team members
+      const members = await collections.userCollection().aggregate([
+        { $match: { _id: userObjectId } },
+        {
+          $graphLookup: {
+            from: "users",
+            startWith: "$referalId",
+            connectFromField: "referalId",
+            connectToField: "sponsorId",
+            as: "teamMembers",
+            maxDepth: 1000
+          }
+        }
+      ]).toArray();
+
+      const teamMemberIds = [userObjectId];
+      if (members[0]?.teamMembers) {
+        members[0].teamMembers.forEach(member => {
+          teamMemberIds.push(new ObjectId(member._id));
+        });
+      }
+      const teamMemberIdsAsStrings = teamMemberIds.map(id => id.toString());
+
+      const investments = await collections.investmentCollection().aggregate([
+        {
+          $match: {
+            userId: { $in: teamMemberIdsAsStrings },
+            createdAt: {
+              $gte: new Date(`${year}-01-01`),
+              $lt: new Date(`${year + 1}-01-01`)
+            }
+          }
+        },
+        {
+          $group: {
+            _id: { $month: "$createdAt" },
+            totalInvestment: { $sum: "$amount" }
+          }
+        }
+      ]).toArray();
+
+      const monthlyData = Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        totalInvestment: 0
+      }));
+
+      investments.forEach(({ _id, totalInvestment }) => {
+        monthlyData[_id - 1].totalInvestment = totalInvestment;
+      });
+
+      return { ...fetched("Team investments"), data: monthlyData };
+    } catch (err) {
+      console.error("Error:", err);
+      return tryAgain;
+    }
+  }
 
 };
 

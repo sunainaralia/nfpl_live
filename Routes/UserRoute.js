@@ -304,7 +304,7 @@ routes.post(
 );
 routes.post(
   "/update-user-ror",
-  // authMiddleware.verifyToken,
+  authMiddleware.verifyToken,
   // authMiddleware.checkAuth,
   authMiddleware.checkFields(["id"]),
   async (req, res) => {
@@ -313,6 +313,32 @@ routes.post(
       return res.status(result.status).send(result);
     } catch (error) {
       console.error("Error updating user income:", error);
+      return res.status(serverError.status).send(serverError);
+    }
+  }
+);
+routes.get(
+  "/get-income-graph/:userId",
+  authMiddleware.verifyToken,
+  async (req, res) => {
+    try {
+      const result = await userController.getIncomeGraph(req);
+      return res.status(result.status).send(result);
+    } catch (error) {
+      console.error("Error updating user income:", error);
+      return res.status(serverError.status).send(serverError);
+    }
+  }
+);
+routes.get(
+  "/get-team-investment-graph",
+  authMiddleware.verifyToken,
+  async (req, res) => {
+    try {
+      const result = await userController.getTeamInvestments(req);
+      return res.status(result.status).send(result);
+    } catch (error) {
+      console.error("Error getting team invetment:", error);
       return res.status(serverError.status).send(serverError);
     }
   }
