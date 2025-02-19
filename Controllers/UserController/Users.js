@@ -598,8 +598,8 @@ class User {
         collections.notifCollection().countDocuments({ userId: value, status: false }),
       ]);
       if (user) {
-        const newUser = new UserModel().fromJson(user).toClientJson();
-        newUser.image = newUser.image ? readFile(user?.image) : "";
+        // const newUser = new UserModel().fromJson(user).toClientJson();
+        user.image = user.image ? readFile(user?.image) : "";
         if (kyc) {
           kyc.aadharFile = [
             readFile(kyc?.aadharFile?.[0]) ?? "",
@@ -610,13 +610,11 @@ class User {
         }
         const totalTransaction = await collections.transCollection().countDocuments({ userId: value, status: true });
         const portfolio = await collections.portfolioCollection().findOne({ userId: value, status: true });
-        console.log(portfolio);
-        console.log(totalTransaction)
 
         return {
           ...fetched("Your"),
           data: {
-            user: newUser,
+            user: user,
             kyc: kyc,
             unread: unread ?? 0,
             totalTransaction: totalTransaction ?? 0,
