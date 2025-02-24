@@ -28,7 +28,7 @@ class InvestmentModel {
       jsonData._id ?? null,
       jsonData.userId ?? "",
       jsonData.title ?? "",
-      jsonData.transactionId ?? [],
+      jsonData.transactionId ?? null,
       jsonData.amount != null ? parseFloat(jsonData.amount) : 0,
       jsonData.charges != null ? parseFloat(jsonData.charges) : 0,
       jsonData.status != undefined ? JSON.parse(jsonData.status) : false,
@@ -39,13 +39,12 @@ class InvestmentModel {
   }
 
   toDatabaseJson() {
-    const adjustedAmount = this.amount - this.charges; // Deduct charges from amount
 
     return {
       userId: this.userId,
       title: this.title,
       transactionId: this.transactionId,
-      amount: adjustedAmount,
+      amount: this.amount,
       charges: this.charges,
       status: this.status,
       withdraw: this.withdraw,

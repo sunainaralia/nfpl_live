@@ -151,8 +151,6 @@ class Settings {
     }
   }
 
-  async;
-
   async authSettings(type, status, session) {
     const settings = await collections.settingsCollection().findOne({
       type: type,
@@ -181,6 +179,6 @@ class Settings {
       return serverError;
     }
   }
-}
+};
 
 export default Settings;

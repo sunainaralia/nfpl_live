@@ -151,9 +151,7 @@ class KycDetail extends User {
 
       const result = await collections.kycCollection().updateOne({ userId: userId }, { $set: { aadharFile: [aadharFrontPath, aadharBackPath], panFile: panFilePath, sign: signFilePath, status: false } });
       const user = await collections.userCollection().findOne({ _id: new ObjectId(userId) })
-      console.log(user)
       if (result.modifiedCount > 0) {
-
         // let mailOption = options(
         //   user.email,
         //   subAccCreated,

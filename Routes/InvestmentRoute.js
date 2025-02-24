@@ -69,7 +69,7 @@ routes.get(
 routes.put(
   "/update-investment",
   authController.verifyToken,
-  authController.checkAuth,  // Ensure the user is an admin or has required permissions
+  authController.checkAuth, 
   async (req, res) => {
     try {
       const result = await investmentController.updateInvestmentById(req.body);
@@ -87,8 +87,8 @@ routes.put(
 routes.delete(
   "/delete-investment/:id",
   authController.verifyToken,
-  authController.checkAuth,  // Ensure the user is an admin or has required permissions
-  authController.CheckObjectId, // Ensure the ID is valid
+  authController.checkAuth,  
+  authController.CheckObjectId, 
   async (req, res) => {
     try {
       const result = await investmentController.deleteInvestmentById(req.params?.id);
@@ -116,8 +116,23 @@ routes.post(
         parseInt(page),
         parseInt(limit)
       );
-
       return res.status(result.status).send(result);
+    } catch (error) {
+      return res.status(serverError.status).send({
+        ...serverError,
+        error,
+      });
+    }
+  }
+);
+// Get investment by ID
+routes.get(
+  "/get-pending-investments/:userId",
+  authController.verifyToken,
+  async (req, res) => {
+    try {
+      const result = await investmentController.getPendingInvestmentById(req.params?.userId);
+      res.status(result.status).send(result);
     } catch (error) {
       return res.status(serverError.status).send({
         ...serverError,

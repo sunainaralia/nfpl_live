@@ -37,7 +37,7 @@ routes.post(
 
 // Get Portfolio by ID
 routes.get("/portfolios/:id", authController.verifyToken, async (req, res) => {
-
+  
   try {
     const result = await portfolio.getPortfolioById(req.params.id);
     res.status(result.status).send(result);
@@ -47,7 +47,7 @@ routes.get("/portfolios/:id", authController.verifyToken, async (req, res) => {
 });
 
 // Update Portfolio
-routes.put("/portfolios/:id", authController.verifyToken, async (req, res) => {
+routes.put("/portfolios/:id",  authController.verifyToken, async (req, res) => {
   try {
     const result = await portfolio.updatePortfolioById({ id: req.params.id, ...req.body });
     res.status(result.status).send(result);

@@ -28,7 +28,8 @@ import {
     serverError,
     tryAgain,
     userActivated,
-    notVerifiedYet
+    notVerifiedYet,
+    superAdminAlreadyExist
 } from "../../Utils/Responses/index.js";
 import { options, sendMail, transponder } from '../../Utils/Mailer/index.js';
 import collections from "../../Utils/Collections/collections.js";
@@ -40,7 +41,8 @@ import UserModel from "../../Models/adminModel.js";
 class Admin {
     constructor() {
     }
-    async getUsers(id, page, limit) {
+    // get all admins
+    async getAdmins(id, page, limit) {
         let skip = parseInt(page) * limit;
         try {
             const users = await collections
@@ -49,11 +51,14 @@ class Admin {
                 .skip(skip)
                 .limit(limit)
                 .toArray();
-
+            const totalAdmins = await collections
+                .adminCollection()
+                .countDocuments({ id: { $ne: id }, type: { $ne: "super-admin" } });
             if (users.length > 0) {
                 return {
                     ...fetched("Staff"),
                     data: users,
+                    length: totalAdmins
                 };
             }
             return notExist("Staff");
@@ -63,7 +68,7 @@ class Admin {
         }
     }
 
-    // Complete login controller
+    //  login controller
     async login(req, res) {
         try {
             const { email, password } = req.body;
@@ -82,7 +87,6 @@ class Admin {
                                     { $set: { attempt: 5 } }
                                 );
                             }
-
                             const token = jwt.sign({ id: result._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
                             return res.status(loggedIn.status).send({
                                 ...loggedIn,
@@ -98,7 +102,6 @@ class Admin {
 
                             // Fetch the updated document to get the new attempt value
                             const updatedResult = await collections.adminCollection().findOne({ _id: result._id });
-
                             const response = invalidLoginCred(updatedResult.attempt);
                             return res.status(response.status).send({
                                 ...response,
@@ -161,11 +164,13 @@ class Admin {
         try {
             const user = UserModel.fromJson(body);
             if (user.type == "super-admin") {
+                const existingSuperAdmin = await collections.adminCollection().findOne({ type: "super-admin" });
+                if (existingSuperAdmin) {
+                    return superAdminAlreadyExist;
+                }
                 user.isVerified = true;
                 user.status = true;
             }
-
-            // Generate referalId and ensure it's unique
             let referalId = generatereferalId();
             while (!await isreferalIdUnique(referalId)) {
                 referalId = generatereferalId();
@@ -242,9 +247,8 @@ class Admin {
                 }
                 const { email, phone, fullName, _id } = result;
                 function generateOTP() {
-                    // Generate a random 6-digit number
                     const otp = Math.floor(100000 + Math.random() * 900000);
-                    return otp.toString(); // Convert to string
+                    return otp.toString();
                 }
 
                 let otp = generateOTP();
@@ -308,7 +312,7 @@ class Admin {
                 res.cookie("id", user.id, {
                     httpOnly: true,
                     maxAge: 1 * 24 * 60 * 60 * 1000,
-                    secure: true, // Set to false for local development
+                    secure: true,
                     sameSite: "strict",
                 });
 
@@ -317,7 +321,7 @@ class Admin {
                     .cookie("authToken", token, {
                         httpOnly: true,
                         maxAge: 1 * 24 * 60 * 60 * 1000,
-                        secure: true, // Set to false for local development
+                        secure: true,
                         sameSite: "strict",
                     })
                     .send({
@@ -388,9 +392,8 @@ class Admin {
                 const hashedPassword = await HashPassword(password);
                 const { email, fullName } = result;
                 function generateOTP() {
-                    // Generate a random 6-digit number
                     const otp = Math.floor(100000 + Math.random() * 900000);
-                    return otp.toString(); // Convert to string
+                    return otp.toString();
                 }
 
                 let otp = generateOTP();
@@ -508,7 +511,6 @@ class Admin {
             return serverError;
         }
     }
-
 
 
     //   Delete Admin controller

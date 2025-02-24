@@ -7,6 +7,12 @@ import {
   investmentNotExist,
   tryAgain,
   serverError,
+  idNotFound,
+  notExist,
+  InvestmentError,
+  barNotExist,
+  settingNotExist,
+  barNotExistInGivenRange
 } from "../../Utils/Responses/index.js";
 import { ObjectId } from "mongodb";
 import collections from "../../Utils/Collections/collections.js";
@@ -51,11 +57,45 @@ class InvestmentController {
 
   // Create a new investment
   async createInvestment(body) {
-    const newInvestment = investment.fromJson(body);
     try {
+      const range = parseInt(body.amount);
+      const user = body.userId;
+      const userData = await collections.userCollection().findOne({ _id: new ObjectId(user) });
+      if (!userData) {
+        return notExist("User");
+      }
+      const checkInvestments = await collections.investmentCollection().countDocuments({
+        userId: user,
+        status: false,
+        $or: [{ transactionId: null }, { transactionId: "" }]
+      });
+      if (checkInvestments > 0) {
+        return InvestmentError;
+      }
+      const bars = await collections.barsCollection().find({ type: "config" }).sort({ range: 1 }).toArray();
+      if (bars.length === 0) return barNotExist;
+      const settingCollections = await collections.settingsCollection().findOne({ type: "min-range", status: true });
+      if (!settingCollections) {
+        return settingNotExist;
+      }
+      const requiredMinInvestment = parseFloat(settingCollections.value);
+      if (range < requiredMinInvestment) {
+        return barNotExistInGivenRange(requiredMinInvestment);
+      }
+      const selectedBar = bars.find((bar) => {
+        return (range <= bar.range
+        );
+      });
+      if (!selectedBar) {
+        return barNotExist;
+      }
+      const charges = selectedBar.charges;
+      const deductedAmount = (range * charges) / 100;
+      const deductedRange = range - deductedAmount;
+      const investmentConstructor = new InvestmentModel(null, body.userId, selectedBar.title, null, deductedRange, deductedAmount, false, false, new Date(), new Date())
       const result = await collections
         .investmentCollection()
-        .insertOne(newInvestment.toDatabaseJson()); 
+        .insertOne(investmentConstructor.toDatabaseJson());
 
       if (result && result.insertedId) {
         return {
@@ -176,6 +216,30 @@ class InvestmentController {
       return {
         ...serverError,
         err,
+      };
+    }
+  }
+
+  async getPendingInvestmentById(userid) {
+    try {
+      const investmentData = await collections.investmentCollection().find({
+        userId: userid,
+        status: false,
+        $or: [{ transactionId: null }, { transactionId: "" }]
+      }).toArray();
+
+      if (investmentData.length === 0) {
+        return investmentNotExist;
+      }
+
+      return {
+        ...investmentFetched,
+        data: investmentData,
+      };
+    } catch (err) {
+      return {
+        ...serverError,
+        error: err.message,
       };
     }
   }

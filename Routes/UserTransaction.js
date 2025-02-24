@@ -18,7 +18,7 @@ routes.get(
   authController.checkAuth,
   async (req, res) => {
     try {
-      let { page, limit = 10 } = req.query;
+      const { page = 0, limit = 10 } = req.query;
       const result = await usertrans.getUserTrans(page, parseInt(limit));
       res.status(result.status).send(result);
     } catch (error) {
@@ -33,8 +33,7 @@ routes.get(
 // Create new transaction
 routes.post(
   "/create-transaction",
-  upload.none(),
-  authController.verifyToken,
+  // authController.verifyToken,
   authController.checkFields(["userId", "amount", "paymentMethod"]),
   async (req, res) => {
     try {
@@ -125,8 +124,9 @@ routes.get(
     try {
       let month = req?.query?.month;
       let year = req?.query?.year;
+      const { page = 0, limit = 10 } = req.query;
       let userId = req.query?.userId ?? req.headers?.userid ?? req.headers?.userId;
-      const result = await usertrans.getUserTransByUserId(userId, month, year);
+      const result = await usertrans.getUserTransByUserId(userId, month, year, parseInt(page), parseInt(limit));
       return res.status(result.status).send(result);
     } catch (error) {
       return res.status(serverError.status).send({

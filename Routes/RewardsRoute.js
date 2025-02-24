@@ -15,7 +15,6 @@ const reward = new Reward();
 const authController = new Auth();
 
 // Get All rewards
-// checked
 routes.get(
   "/get-rewards",
   authController.verifyToken,
@@ -34,7 +33,6 @@ routes.get(
 );
 
 // Add reward API
-// checked
 routes.post(
   "/create-reward",
   upload.none(),

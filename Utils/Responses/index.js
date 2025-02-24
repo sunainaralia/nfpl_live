@@ -60,7 +60,14 @@ export const columnUpdated = (type) => {
   };
 };
 
-
+export const releaseRoiSuccess = {
+  status: 200,
+  message: "your return on investement is released successfully"
+}
+export const releaseRorSuccess = {
+  status: 200,
+  message: "your return on return is released successfully"
+}
 export const columnCreated = (type) => {
   return {
     status: 200,
@@ -122,7 +129,10 @@ export const walletMsg = (status) => {
     message: `your ${status} request has been intiated. Your wallet will be updated shortly. Kindly check your mail for confirmation. Below is your unique transaction Id.`,
   };
 };
-
+export const InvestmentError = {
+  status: 400,
+  message: "please activate your first investment firstly , after that you can create the new investments. Thankyou"
+};
 
 export const kycDone = {
   status: 200,
@@ -294,6 +304,11 @@ export const tryAgain = {
   message:
     "Something went wrong, please check the information you provide or try again later",
 };
+export const superAdminAlreadyExist = {
+  status: 400,
+  message:
+    "you are not authorised to register as super-admin ,please try again later",
+}
 
 export const notCredited = {
   status: 400,
@@ -381,7 +396,10 @@ export const transExist = {
   message: "Transaction Already Exist or given token is Expired",
   type: "invalid",
 };
-
+export const AdequateInvestmentAmount = {
+  status: 400,
+  message: "Investment is not exists with this amount"
+}
 export const notExist = (collection) => {
   return {
     status: 404,

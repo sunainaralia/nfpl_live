@@ -15,7 +15,8 @@ import {
   idNotFound,
   barNotExist,
   barNotExistInGivenRange,
-  settingNotExist
+  settingNotExist,
+  AdequateInvestmentAmount
 } from "../../Utils/Responses/index.js";
 import UserTransactionModel from "../../Models/transactionModel.js";
 import Notifications from "../NotificationController/Notifications.js";
@@ -54,10 +55,14 @@ class UserTrans extends Notifications {
         .skip(skip)
         .limit(limit)
         .toArray();
+      const totalTransactions = await collections
+        .transCollection()
+        .countDocuments({});
       if (result.length > 0) {
         return {
           ...fetched("User Transaction"),
           data: result,
+          length: totalTransactions
         };
       } else {
         return tryAgain;
@@ -244,9 +249,11 @@ class UserTrans extends Notifications {
   }
 
   // Get User Transactions by User ID for specific month and year
-  async getUserTransByUserId(id, month, year) {
+  async getUserTransByUserId(id, month, year, page, limit) {
     let value = id.toLowerCase();
+
     try {
+      let skip = page * limit;
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 1);
 
@@ -256,12 +263,20 @@ class UserTrans extends Notifications {
           $and: [{
             userId: value,
           }]
-        })
+        }).skip(skip)
+        .limit(limit)
         .toArray();
+      const totalTransactions = await collections
+        .transCollection()
+        .countDocuments({
+          userId: value,
+        });
+
       if (result && result.length > 0) {
         return {
           ...fetched("User Transaction"),
           data: result,
+          length: totalTransactions
         };
       } else {
         return notExist("transaction");
@@ -430,75 +445,137 @@ class UserTrans extends Notifications {
       return serverError;
     }
   }
-
+  // create transactions
   async createTransaction(body) {
+    const session = client.startSession();
+    session.startTransaction();
     try {
-      const trans = userTrans.fromJson(body);
-      const range = trans.amount;
-      const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray();
-      if (bars.length === 0) return barNotExist;
-      const settingCollections = await collections.settingsCollection().findOne({ type: "min-investment", status: true });
+      const range = body.amount;
+      const investmentId = body?.investmentId || "";
+      const bars = await collections.barsCollection()
+        .find({ type: "config" })
+        .sort({ range: 1 })
+        .toArray();
+
+      if (bars.length === 0) {
+        await session.abortTransaction();
+        session.endSession();
+        return barNotExist;
+      }
+      const settingCollections = await collections.settingsCollection().findOne(
+        { type: "min-range", status: true },
+        { session }
+      );
+
       if (!settingCollections) {
+        await session.abortTransaction();
+        session.endSession();
         return settingNotExist;
       }
       const requiredMinInvestment = parseFloat(settingCollections.value);
       if (range < requiredMinInvestment) {
+        await session.abortTransaction();
+        session.endSession();
         return barNotExistInGivenRange(requiredMinInvestment);
       }
-      const selectedBar = bars.find((bar, index) => {
-        return (
-          index === bars.length - 1 ||
-          (range > bar.range && range <= bars[index + 1].range)
-        );
-      });
+      const selectedBar = bars.find((bar) => range <= bar.range);
       if (!selectedBar) {
+        await session.abortTransaction();
+        session.endSession();
         return barNotExist;
       }
 
-
       const charges = parseInt(selectedBar.charges);
-      const deductedAmount = (range * charges) / 100
-      const deductedRange = range - deductedAmount
-      trans.charges = deductedAmount;
-      const taxSettings = await collections.settingsCollection().findOne({ type: "tax-configuration" });
+      const deductedAmount = (range * charges) / 100;
+      // Fetch tax settings
+      const taxSettings = await collections.settingsCollection().findOne(
+        { type: "tax-config" },
+        { session }
+      );
+
       if (!taxSettings) {
-        return tryAgain;
+        await session.abortTransaction();
+        session.endSession();
+        return notExist("Settings");
       }
+
       const taxRate = taxSettings.value;
-      trans.tax = parseInt(taxRate);
-      trans.status = true;
-      trans.paymentMethod = trans.paymentMethod;
-      let user = await collections.userCollection().findOne({ _id: new ObjectId(trans.userId) });
-      if (user && user._id) {
-        const invoiceNo = `oum|${await collections.transCollection().countDocuments() + 1}`;
-        trans.invoiceNo = invoiceNo;
-        trans.status = true;
-        const result = await collections.transCollection().insertOne(trans.toDatabaseJson());
-        if (result && result.insertedId) {
-          let option = options(user.email, "Oumvest Transaction Code Generated", transaction(user._id, trans.amount, result.insertedId, user.fullName));
-          await sendMail(option);
-          const investment = new InvestmentModel(
-            null, trans.userId, selectedBar.title, result.insertedId, deductedRange, deductedAmount, false, false, new Date(), new Date(),
-          );
-          const investmentData = investment.toDatabaseJson();
-          const investmentResult = await collections.investmentCollection().insertOne(investmentData);
-          if (investmentResult && investmentResult.insertedId) {
-            return {
-              ...columnCreated("Transaction and Investment"),
-              data: { id: result.insertedId, investmentId: investmentResult.insertedId }
-            };
-          } else {
-            return tryAgain;
-          }
-        } else {
-          return idNotFound;
+
+      // Fetch user details
+      let user = await collections.userCollection().findOne(
+        { _id: new ObjectId(body.userId) },
+        { session }
+      );
+
+      if (!user || !user._id) {
+        await session.abortTransaction();
+        session.endSession();
+        return notExist("User");
+      }
+      const invoiceNo = `oum|${(await collections.transCollection().countDocuments()) + 1}`;
+
+      const transConstructor = new UserTransactionModel(
+        null,
+        body.userId,
+        deductedAmount,
+        null,
+        parseInt(range),
+        invoiceNo,
+        parseInt(taxRate),
+        body.paymentMethod,
+        true,
+        new Date(),
+        new Date()
+      );
+
+      const transationData = transConstructor.toDatabaseJson();
+      const result = await collections.transCollection().insertOne(transationData, { session });
+
+      if (!result || !result.insertedId) {
+        await session.abortTransaction();
+        session.endSession();
+        return idNotFound;
+      }
+      if (investmentId) {
+        const investmentData = await collections.investmentCollection().findOneAndUpdate(
+          { _id: new ObjectId(investmentId) },
+          { $set: { transactionId: result.insertedId } },
+          { returnDocument: "after", session }
+        );
+        if (!investmentData) {
+          await session.abortTransaction();
+          session.endSession();
+          return notExist("Investment");
+        }
+        if (!((investmentData.amount + investmentData.charges) === range)) {
+          await session.abortTransaction();
+          session.endSession();
+          return AdequateInvestmentAmount;
         }
       }
+      let option = options(
+        user.email,
+        "Oumvest Transaction Code Generated",
+        transaction(user._id, transationData.amount, result.insertedId, user.fullName)
+      );
+
+      await sendMail(option);
+      await session.commitTransaction();
+      session.endSession();
+
+      return {
+        ...columnCreated("Transaction"),
+        data: { id: result.insertedId }
+      };
+
     } catch (error) {
       console.error(error);
+      await session.abortTransaction();
+      session.endSession();
       return serverError;
     }
   }
+
 
 }
 

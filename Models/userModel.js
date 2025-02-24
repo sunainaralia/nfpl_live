@@ -54,8 +54,8 @@ class UserModel {
     this.wallet = wallet;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
-    this.linkdinId = linkdinId,
-      this.instagramId = instagramId
+    this.linkdinId = linkdinId;
+    this.instagramId = instagramId
   }
 
   // Method to create a new instance of UserModel from JSON data
@@ -65,7 +65,7 @@ class UserModel {
       jsonData.initial ?? "",
       jsonData.fullName ?? "",
       jsonData.password ?? "",
-      jsonData.email ?? "",
+      jsonData.email?.toLowerCase() ?? "",
       jsonData.phone ?? null,
       jsonData.image ?? "",
       jsonData.dob ?? null,
@@ -106,8 +106,8 @@ class UserModel {
       type: this.type,
       attempt: this.attempt,
       isVerified: this.isVerified,
-      referalId: this.referalId, // referalId is a string
-      sponsorId: this.sponsorId, // sponsorId is a string
+      referalId: this.referalId,
+      sponsorId: this.sponsorId,
       level: this.level,
       member: this.member,
       unlocked: this.unlocked,
@@ -138,7 +138,7 @@ class UserModel {
       type: this.type,
       attempt: this.attempt,
       isVerified: this.isVerified,
-      referalId: this.referalId, // referalId is now a string
+      referalId: this.referalId, 
       sponsorId: this.sponsorId,
       level: this.level,
       member: this.member,

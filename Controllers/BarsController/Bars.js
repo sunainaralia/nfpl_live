@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 import collections from "../../Utils/Collections/collections.js";
 import Auth from "../../Middlewares/Authentication/index.js";
 const bar = new BarsModel();
-const authentications = new Auth()
+const authentications = new Auth();
 class BarsController {
   constructor() { }
 
@@ -102,15 +102,10 @@ class BarsController {
   // Get Bar by ID
   async getBarById(id) {
     try {
-      // Fetch bar by ID
       const barData = await collections.barsCollection().findOne({ _id: new ObjectId(id) });
-
-      // If the bar does not exist
       if (!barData) {
         return barNotExist;
       }
-
-      // If the bar exists, return the data
       return {
         ...barFetched,
         data: barData,
@@ -126,9 +121,9 @@ class BarsController {
   // Get bar by range and calculate monthly return
   async getBarByRange(range) {
     try {
-      const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray();
+      const bars = await collections.barsCollection().find({ type: "config" }).sort({ range: 1 }).toArray();
       if (bars.length === 0) return barNotExist;
-      const settingCollections = await collections.settingsCollection().findOne({ type: "min-investment", status: true });
+      const settingCollections = await collections.settingsCollection().findOne({ type: "min-range", status: true });
       if (!settingCollections) {
         return settingNotExist;
       }
@@ -136,10 +131,8 @@ class BarsController {
       if (range < requiredMinInvestment) {
         return barNotExistInGivenRange(requiredMinInvestment);
       }
-      const selectedBar = bars.find((bar, index) => {
-        return (
-          index === bars.length - 1 ||
-          (range > bar.range && range <= bars[index + 1].range)
+      const selectedBar = bars.find((bar) => {
+        return (range <= bar.range
         );
       });
       if (!selectedBar) {
@@ -151,24 +144,25 @@ class BarsController {
       const deductedRange = range - deductedAmount
       const monthlyRate = (yearlyRate / 100);
       const monthlyReturn = deductedRange * monthlyRate;
+      const barModels = new BarsModel(
+        selectedBar._id,
+        selectedBar.adminId,
+        selectedBar.title,
+        selectedBar.range,
+        selectedBar.rate,
+        selectedBar.type,
+        selectedBar.status,
+        selectedBar.tenure,
+        deductedAmount,
+        selectedBar.createdAt,
+        selectedBar.updatedAt
+      )
+      const responseData = barModels.toClientJson();
+      const actualResponseData = { ...responseData, monthlyReturn: monthlyReturn.toFixed(2), actualInvestment: deductedRange, chargesRate: selectedBar.charges }
+      delete actualResponseData.adminId;
       return {
-        status: 200,
-        message: "Bar details are ready!",
-        data: {
-          id: selectedBar._id,
-          title: selectedBar.title,
-          range: selectedBar.range,
-          rate: selectedBar.rate,
-          monthlyReturn: monthlyReturn.toFixed(2),
-          type: selectedBar.type,
-          status: selectedBar.status,
-          tenure: selectedBar.tenure,
-          actualInvestment: deductedRange,
-          chargesRate: selectedBar.charges,
-          charges: deductedAmount,
-          createdAt: selectedBar.createdAt,
-          updatedAt: selectedBar.updatedAt,
-        },
+        ...barFetched,
+        data: actualResponseData,
       };
     } catch (err) {
       return serverError;

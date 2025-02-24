@@ -73,7 +73,6 @@ class Distribution {
       };
     }
   }
-// checked
   // Create new Distribution
   async createDistribution(body) {
     const newDistribution =DistributionModel.fromJson(body);
@@ -99,7 +98,6 @@ class Distribution {
   }
 
   // Get Distribution by Id
-  // checked
   async getDistributionById(id) {
     try {
       const result = await collections
@@ -124,7 +122,6 @@ class Distribution {
       };
     }
   }
-// checked
   // Update Distribution by Id
   async updateDistributionById(body) {
     try {

@@ -55,7 +55,7 @@ routes.post(
 );
 
 
-routes.post("/upload-documents", upload.fields([
+routes.post("/upload-documents",authControler.verifyToken, upload.fields([
   {
     name: "aadharFront",
   },

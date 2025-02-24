@@ -21,7 +21,7 @@ const collection = collections;
 class Address {
 
   constructor() { }
-  // checked
+  // get all adress
   async getAddress(page, limit) {
     const skip = parseInt(page) * limit;
     try {
@@ -45,7 +45,7 @@ class Address {
       };
     }
   }
-  // checked
+  // create address
   async createAddress(body) {
     const add = new AddressModel(body.userId, body.street, body.city, body.state, body.country, body.postalCode, new Date(), new Date());
     try {
@@ -63,17 +63,15 @@ class Address {
         return tryAgain;
       }
     } catch (error) {
-      console.error("Error creating address:", error); // Log error for debugging
+      console.error("Error creating address:", error);
       return serverError;
     }
   }
 
-  // checked
+  // get address by user id
   async getAddressByUserId(id) {
     try {
       const userId = typeof id === 'object' ? Object.values(id).join('') : id;
-
-      // Now try the query with both ObjectId and string formats
       const result = await collection.addCollection()
         .find({
           $or: [
@@ -101,7 +99,7 @@ class Address {
       };
     }
   }
-  // checked
+  // get address by id
   async getAddressById(id) {
     try {
       const result = await collection.addCollection().findOne({
@@ -123,11 +121,10 @@ class Address {
       };
     }
   }
-  // checked
+  // update address
   async updateAddress(body) {
     try {
       const { userId } = body;
-
       if (!userId) {
         console.log("Invalid User ID .....")
         return InvalidId("User");
@@ -144,25 +141,16 @@ class Address {
           message: "Invalid Address ID"
         };
       }
-
-      // Convert the rest of the fields for the update
       const add = address.toUpdateJson(body);
-      console.log("add.............", add);
-
-      // Perform the update operation using userId as a string
       const result = await collection.addCollection().updateOne(
         { userId: userId },
         { $set: add }
       );
-
       if (result.modifiedCount > 0) {
-        // Fetch the updated address from the database
         const updatedAddress = await collection.addCollection().findOne({ userId: userId });
-        console.log("Updated Address:", updatedAddress);
-
         return {
           ...columnUpdated("Address"),
-          data: updatedAddress  
+          data: updatedAddress
         };
       } else {
         return InvalidId("Address");
@@ -176,8 +164,7 @@ class Address {
     }
   }
 
-
-  // checked
+  // get address by code
   async getAddressBycode(code, page, limit) {
     let skip = parseInt(page) * limit;
     try {
@@ -199,7 +186,7 @@ class Address {
 
     }
   }
-
+  // delete address by id
   async deleteAddressById(id) {
     try {
       const result = await collection.addCollection().deleteOne({

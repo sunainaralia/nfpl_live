@@ -12,7 +12,7 @@ const upload = multer();
 const adminController = new Admin();
 const authMiddleware = new Auth();
 
-// Get All Users
+// Get All admins
 routes.get(
     "/get-admins",
     authMiddleware.verifyToken,
@@ -20,8 +20,8 @@ routes.get(
     async (req, res) => {
         try {
             const { page = 0, limit = 10 } = req.query;
-            const userId = req.headers?.userid ?? req.headers?.userId ?? req.headers.id ?? req.headers.Id;
-            const result = await adminController.getUsers(userId, page, parseInt(limit));
+            const userId = req.headers?.id ?? req.headers?.Id ?? req.headers.userid ?? req.headers.userId;
+            const result = await adminController.getAdmins(userId, parseInt(page), parseInt(limit));
             return res.status(result.status).send(result);
         } catch (error) {
             return res.status(serverError.status).send(serverError);

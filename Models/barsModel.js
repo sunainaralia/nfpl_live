@@ -5,7 +5,6 @@ class BarsModel {
     title,
     range,
     rate,
-    chargesRate,
     type,
     status,
     tenure,
@@ -18,7 +17,6 @@ class BarsModel {
     this.title = title;
     this.range = range;
     this.rate = rate;
-    this.chargesRate = chargesRate;
     this.type = type;
     this.status = status;
     this.tenure = tenure;
@@ -34,10 +32,9 @@ class BarsModel {
       jsonData.title ?? "",
       !isNaN(parseFloat(jsonData.range)) ? parseFloat(jsonData.range) : 0,
       !isNaN(parseFloat(jsonData.rate)) ? parseFloat(jsonData.rate) : 0,
-      !isNaN(parseFloat(jsonData.chargesRate)) ? parseFloat(jsonData.chargesRate) : 0,
-      jsonData.type ?? "source",
+      jsonData.type ?? "config",
       jsonData.status !== undefined ? JSON.parse(jsonData.status) : true,
-      !isNaN(parseFloat(jsonData.tenure)) ? parseFloat(jsonData.tenure) : 0,
+      !isNaN(parseFloat(jsonData.tenure)) ? parseFloat(jsonData.tenure) : 2,
       jsonData.charges ?? 2,
       jsonData.createdAt ?? new Date(),
       jsonData.updatedAt ?? new Date()
@@ -51,7 +48,6 @@ class BarsModel {
       title: this.title,
       range: this.range,
       rate: this.rate,
-      chargesRate: this.chargesRate,
       type: this.type,
       status: this.status,
       tenure: this.tenure,
@@ -68,7 +64,6 @@ class BarsModel {
       title: this.title,
       range: this.range,
       rate: this.rate,
-      chargesRate: this.chargesRate,
       type: this.type,
       status: this.status,
       tenure: this.tenure,

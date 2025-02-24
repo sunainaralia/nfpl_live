@@ -1,14 +1,18 @@
 class RegularIncomeModel {
-  constructor(id, userId, level, investmentId, sourceId, type, status, createdAt, endAt, updatedAt) {
+  constructor(id, userId, level, investmentId,
+    amount,
+    sourceId,
+    type, status, createdAt, lastPayment, updatedAt) {
     this.id = id;
     this.userId = userId;
     this.level = level;
     this.investmentId = investmentId;
+    this.amount = amount;
     this.sourceId = sourceId;
     this.type = type;
     this.status = status;
     this.createdAt = createdAt;
-    this.endAt = endAt;
+    this.lastPayment = lastPayment;
     this.updatedAt = updatedAt;
   }
 
@@ -19,11 +23,12 @@ class RegularIncomeModel {
       jsonData.userId,
       jsonData.level != null ? parseInt(jsonData.level) : 0,
       jsonData.investmentId,
+      jsonData.amount,
       jsonData.sourceId,
-      jsonData.type ?? "",  
+      jsonData.type ?? "",
       jsonData.status !== undefined ? JSON.parse(jsonData.status) : false,
       jsonData.createdAt ? new Date(jsonData.createdAt) : new Date(),
-      jsonData.endAt ? new Date(jsonData.endAt) : null,
+      jsonData.lastPayment ? new Date(jsonData.lastPayment) : null,
       jsonData.updatedAt ? new Date(jsonData.updatedAt) : new Date()
     );
   }
@@ -34,11 +39,12 @@ class RegularIncomeModel {
       userId: this.userId,
       level: this.level,
       investmentId: this.investmentId,
+      amount: this.amount,
       sourceId: this.sourceId,
       type: this.type,  // type (roi / ror / royalty / salary)
       status: this.status,
       createdAt: this.createdAt,
-      endAt: this.endAt,
+      lastPayment: this.lastPayment,
       updatedAt: this.updatedAt
     };
   }
@@ -50,11 +56,12 @@ class RegularIncomeModel {
       userId: this.userId,
       level: this.level,
       investmentId: this.investmentId,
+      amount: this.amount,
       sourceId: this.sourceId,
       type: this.type,
       status: this.status,
       createdAt: this.createdAt,
-      endAt: this.endAt,
+      lastPayment: this.lastPayment,
       updatedAt: this.updatedAt
     };
   }

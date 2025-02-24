@@ -18,7 +18,6 @@ import ClaimRequest from "../../Models/claimModel.js";
 import collections from "../../Utils/Collections/collections.js";
 import Notifications from "../NotificationController/Notifications.js";
 import { rewardAchieved } from "../../Utils/Notifications/index.js";
-// import RentModel from "../../Models/rentModel.js";
 import { options, transponder } from "../../Utils/Mailer/index.js";
 // Model instance for ClaimRequest
 const claims = new ClaimRequest();
@@ -27,10 +26,8 @@ const claims = new ClaimRequest();
 const notification = new Notifications();
 
 class Claims {
-  static collection = Function;
 
   constructor() { }
-
   // Get all Claims
   async getClaims() {
     try {
@@ -190,18 +187,7 @@ class Claims {
               await notification.newNotification(rewardAchieved(userId, reward._id, reward.title));
 
               if (parseFloat(reward.salary) > 0) {
-                // let salary = new RentModel().fromJson({
-                //   userId: userId,
-                //   source: reward._id,
-                //   storage: reward.range,
-                //   amount: reward.salary,
-                //   connectionId: reward._id,
-                //   type: "rewards",
-                //   endDate: new Date(),
-                // });
-
                 salary.endDate.setFullYear(salary.endDate.getFullYear() + reward.rule);
-                // await collections.rentCollection().insertOne(salary.toDatabaseJson());
               }
 
               let option = options(user.email, "Congratulations! New Reward Achieved!", rewardAch(user.name, userId, reward.title));

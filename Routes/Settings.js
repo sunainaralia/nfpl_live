@@ -12,7 +12,7 @@ const settings = new Settings();
 const authController = new Auth();
 
 // Get All Sources with Pagination
-routes.get("/settings", authController.verifyToken, authController.checkAuth, async (req, res) => {
+routes.get("/settings", authController.verifyToken,authController.checkAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 0;
     const limit = parseInt(req.query.limit) || 10;
@@ -45,7 +45,6 @@ routes.get("/settings/count", authController.verifyToken, async (req, res) => {
 // Create New Source
 routes.post(
   "/settings",
-  upload.none(),
   authController.verifyToken,
   authController.checkAuth,
   authController.checkFields(reqFields.settings),

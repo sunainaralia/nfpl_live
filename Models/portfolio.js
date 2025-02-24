@@ -7,6 +7,7 @@ class PortfolioModel {
         amount,
         status,
         totalRoi,
+        lastPayment,
         createdAt,
         updatedAt
     ) {
@@ -17,6 +18,7 @@ class PortfolioModel {
         this.amount = amount;
         this.status = status;
         this.totalRoi = totalRoi;
+        this.lastPayment = lastPayment;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -30,6 +32,7 @@ class PortfolioModel {
             jsonData.amount != null ? parseFloat(jsonData.amount) : 0,
             jsonData.status != undefined ? JSON.parse(jsonData.status) : false,
             jsonData.totalRoi != null ? parseFloat(jsonData.totalRoi) : 0,
+            jsonData.lastPayment ?? new Date,
             jsonData.createdAt ?? new Date(),
             jsonData.updatedAt ?? new Date()
         );
@@ -41,9 +44,10 @@ class PortfolioModel {
             userId: this.userId,
             title: this.title,
             sponsorId: this.sponsorId,
-            amount: adjustedAmount, // Save adjusted amount
+            amount: this.amount,
             status: this.status,
             totalRoi: this.totalRoi,
+            lastPayment: this.lastPayment,
             createdAt: this.createdAt,
             updatedAt: this.updatedAt,
         };

@@ -8,8 +8,6 @@ export const reqFields = {
     "dob",
     "phone",
     "type",
-    "sponsorId",
-    "accountName",
     "confirmPassword"
   ],
   // admin fields
@@ -71,7 +69,7 @@ export const reqFields = {
     "userId", "street", "city", "state", "country", "postalCode"
   ],
   investment: [
-    "userId", "title", "amount"
+    "userId", "amount"
   ],
   distribution: [
     "adminId", "rate", "level"

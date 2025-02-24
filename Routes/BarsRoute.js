@@ -17,7 +17,7 @@ routes.get(
   "/get-bars",
   async (req, res) => {
     try {
-      const { type = "published", page = 0, limit = 10 } = req.query;
+      const { type = "config", page = 0, limit = 10 } = req.query;
       const val = await barsController.getBars(page, parseInt(limit), type);
       return res.status(val.status).send(val);
     } catch (error) {

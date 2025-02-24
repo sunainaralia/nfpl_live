@@ -33,12 +33,13 @@ import {
   incomeActivate,
   transactionFailed,
   rorActivate,
-  incomeGraph
+  incomeGraph,
+  releaseRoiSuccess,
+  releaseRorSuccess
+
 } from "../../Utils/Responses/index.js";
 import { options, sendMail, transponder } from "../../Utils/Mailer/index.js";
 import UserModel from "../../Models/userModel.js";
-import IncomeLog from "../../Models/incomeModel.js";
-import IncomeModel from "../../Models/incomeModel.js";
 import Income from "../IncomeController/Income.js";
 import Notifications from "../NotificationController/Notifications.js";
 import { newPlacement, newRef } from "../../Utils/Notifications/index.js";
@@ -62,8 +63,9 @@ import bcrypt from 'bcrypt';
 import PortfolioModel from "../../Models/portfolio.js";
 import RegularIncome from "../RegularIncomeController/RegularIncome.js";
 import RegularIncomeModel from "../../Models/regularIncomeModel.js";
+import IncomeModel from "../../Models/incomeModel.js";
 // Models
-const incomeModel = new IncomeLog();
+const incomeModel = new IncomeModel();
 const userModel = new UserModel();
 const regularIncomes = new RegularIncome();
 
@@ -90,8 +92,6 @@ class User {
         users.forEach(user => {
           user.image = readFile(user?.image)
         })
-
-
         return {
           ...fetched("Users"),
           data: users,
@@ -132,7 +132,7 @@ class User {
             },
             process.env.JWT_SECRET,
             {
-              expiresIn: "1d",
+              expiresIn: "24h",
             }
           );
           res.cookie("userId", user._id, {
@@ -175,29 +175,22 @@ class User {
     try {
       const { userId, password } = req.body;
       let value = userId.toLowerCase();
-      // Check if the userId is a valid ObjectId
       let objectIdQuery = null;
       if (ObjectId.isValid(value)) {
         objectIdQuery = new ObjectId(value);
       }
-
-      // Query the database, searching by either ObjectId or email
       const result = await collections.userCollection().findOne({
         $or: [
           { _id: objectIdQuery },
           { email: value }
         ]
       });
-
-      // If the result is found, proceed with the password check
       if (result) {
         const user = userModel.fromJson(result);
-        // Check the number of attempts
         if (user.attempt > 0) {
           const comparedPassword = await ComparePassword(password, user.password);
 
           if (comparedPassword) {
-            // If login is successful, reset attempts to 5
             if (user.attempt < 5) {
               await collections.userCollection().updateOne(
                 { _id: user._id },
@@ -205,13 +198,13 @@ class User {
               );
             }
             // Create JWT token
-            const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: '7d' });
+            const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
             // Set cookies for authentication
             res.cookie('userId', user._id, {
               httpOnly: true,
-              maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
-              secure: true,  // Set to false for local development
+              maxAge: 7 * 24 * 60 * 60 * 1000,
+              secure: true,
               sameSite: 'strict',
             });
 
@@ -220,8 +213,8 @@ class User {
               .status(loggedIn.status)
               .cookie('authToken', token, {
                 httpOnly: true,
-                maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 days
-                secure: true,  // Set to false for local development
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+                secure: true,
                 sameSite: 'strict',
               })
               .send({
@@ -274,7 +267,8 @@ class User {
 
   async getSponsorInfo(sponsorId, type) {
     try {
-      if (type === "individual") {
+
+      if (type === "user") {
         const user = await collections.userCollection().findOne({
           referalId: sponsorId
         });
@@ -305,15 +299,13 @@ class User {
     try {
       // Validate user type
       const userTypesSettings = await collections.settingsCollection().findOne({
-        title: "users-types"
+        type: "user-type"
       });
       if (!userTypesSettings) {
         return tryAgain;
       }
 
-      const settingsModel = SettingsModel.fromJson(userTypesSettings);
-
-      const allowedUserTypes = settingsModel.value.split(',').map(type => type.trim());
+      const allowedUserTypes = userTypesSettings.value.split(',').map(type => type.trim());
 
       if (!allowedUserTypes.includes(user.type)) {
         return unauthorized;
@@ -330,7 +322,7 @@ class User {
       user.referalId = referalId;
 
       // Validate sponsor - first try user collection
-      let sponsorUser = await this.getSponsorInfo(sponsorId, user.type);
+      let sponsorUser = await this.getSponsorInfo(sponsorId, "user");
       if (!sponsorUser || !sponsorUser.referalId) {
         // If not found in users, try admin collection
         sponsorUser = await this.getSponsorInfo(sponsorId, "admin");
@@ -364,7 +356,6 @@ class User {
       };
     }
   }
-
 
   // Get User Members
   async getMembers(userId) {
@@ -565,7 +556,7 @@ class User {
         $or: [{ _id: objectIdQuery }, { email: value }]
       });
       if (user && user?._id) {
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '5m' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
         const url = `${req.protocol}://${req.get('host')}/v1/api/user/resetPassword/?reset_token=${token}`;
         try {
           const msg = `Oumvest Password Recovery Initiated.please reset your password by click on following link \n\n ${url}\n\n\n and this is valid upto 5 minutes`
@@ -955,15 +946,19 @@ class User {
 
   async sponsorNow(id) {
     try {
-      let value = id
+      let value = id.toUpperCase();
+      let email = id.toLowerCase();
 
-      const user = await collections.userCollection().findOne({
-        referralKey: value
+      let user = await collections.userCollection().findOne({
+        $or: [{ referalId: value }, { email: email }]
       });
+      if (!user || user == null) {
+        user = await collections.adminCollection().findOne({ referalId: value });
+      }
       if (user && user?.status) {
-        return { ...createAcc, data: { userId: user._id } };
+        return { ...createAcc, data: { userId: user.referalId } };
       } else {
-        return notExist("Sponsor is not verified or");
+        return notExist("Sponsor");
       }
     } catch (err) {
       return serverError;
@@ -1195,14 +1190,12 @@ class User {
       session.endSession();
     }
   }
-
   async updateUsersIncome(req) {
     const session = client.startSession();
     let result = false;
     const { investmentId } = req.body;
     try {
       session.startTransaction();
-      // Fetch investment details
       const investment = await collections.investmentCollection().findOne(
         { _id: new ObjectId(investmentId) },
         { returnDocument: "before", session }
@@ -1222,10 +1215,10 @@ class User {
         { session }
       );
 
-      const bars = await collections.barsCollection().find({}).sort({ range: 1 }).toArray({ session });
+      const bars = await collections.barsCollection().find({ type: "config" }).sort({ range: 1 }).toArray({ session });
 
       const minInvestment = await collections.settingsCollection().findOne(
-        { type: 'min-investment' },
+        { type: 'min-range' },
         { session }
       );
 
@@ -1298,13 +1291,13 @@ class User {
           return tryAgain;
         }
 
-        let unlockedLevel = (directInvestment[0]?.totalInvest + investment.amount) / parseFloat(minInvestment.value * 2);
-
+        let unlockedLevel = (directInvestment[0]?.totalInvest + investment.amount) / (parseFloat(minInvestment.value) * 2);
+        let dLevel = parseInt(levels.value);
         let updateQuery = {
-          $set: { unlocked: parseInt(unlockedLevel) > levels?.value ? levels?.value : parseInt(unlockedLevel) },
+          $set: { unlocked: parseInt(unlockedLevel) > dLevel ? dLevel : parseInt(unlockedLevel) },
           $inc: { member: investment.amount }
         };
-        while (i <= levels?.value) {
+        while (i <= dLevel) {
 
           let updateSponsor = await this.addNewIncome(currentSponsorId, updateQuery, session);
 
@@ -1347,8 +1340,6 @@ class User {
       await session.endSession();
     }
   };
-
-
   // update ror
   async updateUserRor(req) {
     try {
@@ -1390,9 +1381,7 @@ class User {
       return tryAgain;
     }
   }
-
   // get income percent graph
-
   async getIncomeGraph(req) {
     try {
       const userId = req.params.userId;
@@ -1410,14 +1399,14 @@ class User {
       const rorIncome = parseFloat((wallet / earnings) * 100).toFixed(2);
       const roiIncome = parseFloat((totalRoi / earnings) * 100).toFixed(2);
       const achievements = parseFloat(((earnings - (totalRoi + wallet)) / earnings) * 100).toFixed(2);
+
       return incomeGraph(rorIncome, roiIncome, achievements);
     } catch (err) {
       console.error("Error in fetching User's income graph:", err);
       return tryAgain;
     }
   }
-
-
+  // get team investments
   async getTeamInvestments(req) {
     try {
       const userId = req.headers.userid;
@@ -1430,8 +1419,6 @@ class User {
       const userObjectId = new ObjectId(userId);
       const user = await collections.userCollection().findOne({ _id: userObjectId });
       if (!user) return idNotFound;
-
-      // Fetch team members
       const members = await collections.userCollection().aggregate([
         { $match: { _id: userObjectId } },
         {
@@ -1487,7 +1474,203 @@ class User {
       return tryAgain;
     }
   }
+  // release roi
+  async releaseRoi(req) {
+    const session = client.startSession();
+    try {
+      session.startTransaction();
+      const userId = req.headers.userId;
+      const user = await collections.userCollection().findOne(
+        { _id: new ObjectId(userId) },
+        { session }
+      );
 
+      const portfolio = await collections.portfolioCollection().findOne(
+        { userId: userId },
+        { session }
+      );
+
+      const tds = await collections.settingsCollection().findOne(
+        { type: "tds" },
+        { session }
+      );
+
+      const serviceCharge = await collections.settingsCollection().findOne(
+        { type: "service-charge" },
+        { session }
+      );
+      if (!user || !user.status || !tds || !portfolio || !serviceCharge) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+
+      const referalId = updateUser.value.sponsorId;
+
+      const sponsorUser = await collections.userCollection().findOne(
+        { referalId: referalId },
+        { session }
+      );
+
+      if (!sponsorUser) {
+        await session.abortTransaction();
+        return notExist("Sponsor User");
+      };
+
+      const actualServiceCharges = parseFloat((portfolio.totalRoi * parseFloat(serviceCharge.value)) / 100);
+      const actualTdsCharges = parseFloat(((portfolio.totalRoi - actualServiceCharges) * parseFloat(tds.value)) / 100);
+      const finalAmount = parseFloat(portfolio.totalRoi - actualServiceCharges - actualTdsCharges);
+      const updateUser = await collections.userCollection().findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        { $inc: { earnings: finalAmount } },
+        { returnDocument: 'after', session }
+      );
+
+      if (!updateUser.value) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+      let newIncomeModel = new IncomeModel(
+        null,
+        userId,
+        sponsorUser._id,
+        updateUser.value.level,
+        finalAmount,
+        "roi",
+        actualTdsCharges,
+        actualServiceCharges,
+        true,
+        new Date(),
+        new Date()
+      );
+
+      let addIncome = await collections.incomeCollection().insertOne(
+        newIncomeModel.toDatabaseJson(),
+        { session }
+      );
+
+      if (!addIncome.insertedId) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+
+      const modifyPortfolio = await collections.portfolioCollection().findOneAndUpdate(
+        { userId: userId },
+        { $set: { lastPayment: new Date() } },
+        { returnDocument: "after", session }
+      );
+
+      if (!modifyPortfolio.value) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+      await session.commitTransaction();
+      return releaseRoiSuccess;
+    } catch (err) {
+      await session.abortTransaction();
+      console.error("Transaction error:", err);
+      return serverError;
+    } finally {
+      await session.endSession();
+    }
+  }
+  // release ror
+  async releaseRor(req) {
+    const session = client.startSession();
+    try {
+      await session.startTransaction();
+      const userId = req.headers.userId;
+      const user = await collections.userCollection().findOne(
+        { _id: new ObjectId(userId) },
+        { session }
+      );
+
+      const tds = await collections.settingsCollection().findOne(
+        { type: "tds" },
+        { session }
+      );
+
+      const serviceCharge = await collections.settingsCollection().findOne(
+        { type: "service-charge" },
+        { session }
+      );
+      if (!user || !user.status || !tds || !serviceCharge) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+
+      const referalId = user.sponsorId;
+      const sponsorUser = await collections.userCollection().findOne(
+        { referalId: referalId },
+        { session }
+      );
+
+      if (!sponsorUser) {
+        await session.abortTransaction();
+        return notExist("Sponsor User");
+      }
+      const regularIncomeSum = await collections.regularIncomeCollection().aggregate([
+        { $match: { userId: new ObjectId(userId) } },
+        { $group: { _id: null, totalAmount: { $sum: "$amount" } } }
+      ], { session }).toArray();
+
+      const totalAmount = regularIncomeSum.length > 0 ? regularIncomeSum[0].totalAmount : 0;
+      const actualServiceCharges = parseFloat((totalAmount * serviceCharge.value) / 100);
+      const actualTdsCharges = parseFloat(((totalAmount - actualServiceCharges) * tds.value) / 100);
+      const finalAmount = parseFloat(totalAmount - actualServiceCharges - actualTdsCharges);
+      const updateUser = await collections.userCollection().findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        { $inc: { earnings: finalAmount, wallet: finalAmount } },
+        { returnDocument: 'after', session }
+      );
+
+      if (!updateUser.value) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+      let newIncomeModel = new IncomeModel(
+        null,
+        userId,
+        sponsorUser._id,
+        updateUser.value.level,
+        finalAmount,
+        "ror",
+        actualTdsCharges,
+        actualServiceCharges,
+        true,
+        new Date(),
+        new Date()
+      );
+
+      let addIncome = await collections.incomeCollection().insertOne(
+        newIncomeModel.toDatabaseJson(),
+        { session }
+      );
+
+      if (!addIncome.insertedId) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+      const updateRegularIncome = await collections.regularIncomeCollection().updateMany(
+        { userId: new ObjectId(userId) },
+        { $set: { lastPayment: new Date(), updatedAt: new Date() } },
+        { session }
+      );
+
+      if (updateRegularIncome.modifiedCount < 1) {
+        await session.abortTransaction();
+        return tryAgain;
+      }
+      await session.commitTransaction();
+      return releaseRorSuccess;
+
+    } catch (err) {
+      await session.abortTransaction();
+      console.error("Transaction error:", err);
+      return serverError;
+    } finally {
+      await session.endSession();
+    }
+  }
 };
 
 export default User;

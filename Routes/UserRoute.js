@@ -168,7 +168,6 @@ routes.post("/reset-password",
   }
 );
 
-
 // Get User by user Id API
 routes.get(
   "/get-user-by-id/",
@@ -336,6 +335,20 @@ routes.get(
   async (req, res) => {
     try {
       const result = await userController.getTeamInvestments(req);
+      return res.status(result.status).send(result);
+    } catch (error) {
+      console.error("Error getting team invetment:", error);
+      return res.status(serverError.status).send(serverError);
+    }
+  }
+);
+routes.put(
+  "/release-roi",
+  authMiddleware.verifyToken,
+  authMiddleware.checkFields(["transactionId"]),
+  async (req, res) => {
+    try {
+      const result = await userController.releaseRoi(req);
       return res.status(result.status).send(result);
     } catch (error) {
       console.error("Error getting team invetment:", error);
