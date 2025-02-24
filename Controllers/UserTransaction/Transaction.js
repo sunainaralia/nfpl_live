@@ -452,16 +452,6 @@ class UserTrans extends Notifications {
     try {
       const range = body.amount;
       const investmentId = body?.investmentId || "";
-      const bars = await collections.barsCollection()
-        .find({ type: "config" })
-        .sort({ range: 1 })
-        .toArray();
-
-      if (bars.length === 0) {
-        await session.abortTransaction();
-        session.endSession();
-        return barNotExist;
-      }
       const settingCollections = await collections.settingsCollection().findOne(
         { type: "min-range", status: true },
         { session }
@@ -472,21 +462,6 @@ class UserTrans extends Notifications {
         session.endSession();
         return settingNotExist;
       }
-      const requiredMinInvestment = parseFloat(settingCollections.value);
-      if (range < requiredMinInvestment) {
-        await session.abortTransaction();
-        session.endSession();
-        return barNotExistInGivenRange(requiredMinInvestment);
-      }
-      const selectedBar = bars.find((bar) => range <= bar.range);
-      if (!selectedBar) {
-        await session.abortTransaction();
-        session.endSession();
-        return barNotExist;
-      }
-
-      const charges = parseInt(selectedBar.charges);
-      const deductedAmount = (range * charges) / 100;
       // Fetch tax settings
       const taxSettings = await collections.settingsCollection().findOne(
         { type: "tax-config" },
@@ -513,13 +488,23 @@ class UserTrans extends Notifications {
         return notExist("User");
       }
       const invoiceNo = `oum|${(await collections.transCollection().countDocuments()) + 1}`;
-
+      let investmentData;
+      if (investmentId) {
+        investmentData = await collections.investmentCollection().findOne(
+          { _id: new ObjectId(investmentId) }
+        );
+        if (!investmentData) {
+          await session.abortTransaction();
+          session.endSession();
+          return notExist("Investment");
+        }
+      }
       const transConstructor = new UserTransactionModel(
         null,
         body.userId,
-        deductedAmount,
+        (!investmentId) ? 0 : parseInt(investmentData.charges),
         null,
-        parseInt(range),
+        range ? parseInt(range) : parseInt(investmentData.amount + investmentData.charges),
         invoiceNo,
         parseInt(taxRate),
         body.paymentMethod,
@@ -530,28 +515,10 @@ class UserTrans extends Notifications {
 
       const transationData = transConstructor.toDatabaseJson();
       const result = await collections.transCollection().insertOne(transationData, { session });
-
       if (!result || !result.insertedId) {
         await session.abortTransaction();
         session.endSession();
         return idNotFound;
-      }
-      if (investmentId) {
-        const investmentData = await collections.investmentCollection().findOneAndUpdate(
-          { _id: new ObjectId(investmentId) },
-          { $set: { transactionId: result.insertedId.toString(), status: true } },
-          { returnDocument: "after", session }
-        );
-        if (!investmentData) {
-          await session.abortTransaction();
-          session.endSession();
-          return notExist("Investment");
-        }
-        if (!(parseInt(investmentData.amount + investmentData.charges) === parseInt(range))) {
-          await session.abortTransaction();
-          session.endSession();
-          return AdequateInvestmentAmount;
-        }
       }
       let option = options(
         user.email,
@@ -560,6 +527,13 @@ class UserTrans extends Notifications {
       );
 
       await sendMail(option);
+      if (investmentId) {
+        await collections.investmentCollection().findOneAndUpdate(
+          { _id: new ObjectId(investmentId) },
+          { $set: { transactionId: result.insertedId.toString(), status: true } },
+          { returnDocument: "after", session }
+        );
+      }
       await session.commitTransaction();
       session.endSession();
 

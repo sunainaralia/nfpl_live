@@ -297,7 +297,6 @@ class User {
       })
     }
     try {
-      // Validate user type
       const userTypesSettings = await collections.settingsCollection().findOne({
         type: "user-type"
       });
@@ -344,7 +343,6 @@ class User {
       let newLevel = Number(sponsorUser.level) + 1;
 
       user.level = newLevel;
-      // Add user to the database
       let res = await this.addUser(user.toDatabaseJson());
       return res;
 
@@ -766,7 +764,6 @@ class User {
     try {
       const { id } = body;
       const user = new UserModel().toUpdateJson(body);
-      // Update User Information
       const result = await collections.userCollection().updateOne(
         {
           _id: new ObjectId(id),
@@ -1160,9 +1157,7 @@ class User {
     const session = client.startSession();
 
     try {
-      // Start a transaction
       session.startTransaction();
-
       const userResult = await collections.userCollection().deleteOne({ userId: id }, { session });
       const addressResult = await collections.addCollection().deleteMany({ userId: id }, { session });
       const kycResult = await collections.kycCollection().deleteMany({ userId: id }, { session });
@@ -1671,6 +1666,8 @@ class User {
       await session.endSession();
     }
   }
+
+  
 };
 
 export default User;
