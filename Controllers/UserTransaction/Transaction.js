@@ -550,7 +550,6 @@ class UserTrans extends Notifications {
     }
   }
 
-
 }
 
 export default UserTrans;

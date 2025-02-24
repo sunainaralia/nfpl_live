@@ -33,8 +33,8 @@ routes.get(
 // Create new transaction
 routes.post(
   "/create-transaction",
-  // authController.verifyToken,
-  authController.checkFields(["userId", "amount", "paymentMethod"]),
+  authController.verifyToken,
+  authController.checkFields(["userId", "paymentMethod"]),
   async (req, res) => {
     try {
       const result = await usertrans.createTransaction({
