@@ -539,7 +539,7 @@ class UserTrans extends Notifications {
       if (investmentId) {
         const investmentData = await collections.investmentCollection().findOneAndUpdate(
           { _id: new ObjectId(investmentId) },
-          { $set: { transactionId: result.insertedId } },
+          { $set: { transactionId: result.insertedId.toString(), status: true } },
           { returnDocument: "after", session }
         );
         if (!investmentData) {
@@ -547,7 +547,7 @@ class UserTrans extends Notifications {
           session.endSession();
           return notExist("Investment");
         }
-        if (!((investmentData.amount + investmentData.charges) === range)) {
+        if (!(parseInt(investmentData.amount + investmentData.charges) === parseInt(range))) {
           await session.abortTransaction();
           session.endSession();
           return AdequateInvestmentAmount;
